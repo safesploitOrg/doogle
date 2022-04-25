@@ -2,6 +2,12 @@
 Doogle is a web crawler and search engine which can crawl and index images and websites, and then using keywords be searched later. 
 
 Written primarily in OOP style PHP with the intent of better understanding OOP and how web crawlers work.
+# Features
+
+
+# Table of Contents 
+
+
 
 # Programming Logic
 
@@ -29,3 +35,7 @@ To handle an edge case the following logic is implemented in the while-loop:
     while($pagesLeft != 0 && $currentPage <= $numPages) 
     { ... }
     
+    
+# Preview Images
+
+Coming soon
