@@ -15,3 +15,17 @@ Inside search.php, pagination is implemented
 In the example above, currentPage=11. 
 The number of pages to show is always 10.
 
+### Handling an edge case
+
+An edge case can occur when no more pages are available.
+
+So, for 331 results, **17 pages** will be available. However, without an edge case scenario consider, the UI for the pagination system will allow scrolling through pages which don't exist; which would return an empty result.
+
+To handle an edge case the following logic is implemented in the while-loop:
+
+    if($currentPage + $pagesLeft > $numPages + 1)
+        $currentPage = $numPages + 1 - $pagesLeft;
+
+    while($pagesLeft != 0 && $currentPage <= $numPages) 
+    { ... }
+    
