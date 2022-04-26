@@ -2,6 +2,11 @@
 Doogle is a web crawler and search engine which can crawl and index images and websites, and then using keywords be searched later. 
 
 Written primarily in OOP style PHP with the intent of better understanding OOP and how web crawlers work.
+
+<p align="center">
+  <img width="527" alt="DoogleHomepage-Preview" src="https://user-images.githubusercontent.com/10171446/165316199-b0fe279c-cb11-4a36-84b8-53a514ac488a.png">
+</p>
+
 # Features
 
 - Search sites
@@ -19,6 +24,20 @@ Written primarily in OOP style PHP with the intent of better understanding OOP a
 
 # Table of Contents 
 
+- [Doogle](#doogle)
+- [Features](#features)
+- [Setup and Usage](#setup-and-usage)
+  - [Server Setup](#server-setup)
+  - [Connecting PHP to MySQL Server](#connecting-php-to-mysql-server)
+  - [Crawling Websites to Populate Images and Sites tables](#crawling-websites-to-populate-images-and-sites-tables)
+- [Programming Logic](#programming-logic)
+  - [Pagination](#pagination)
+- [Preview Images](#preview-images)
+  - [Doogle Homepage](#doogle-homepage)
+  - [Doogle Search - Sites](#doogle-search---sites)
+  - [Doogle Search - Images](#doogle-search---images)
+  - [Pagination System](#pagination-system)
+- [Preview Video](#preview-video)
 
 # Setup and Usage
 
