@@ -4,6 +4,17 @@ Doogle is a web crawler and search engine which can crawl and index images and w
 Written primarily in OOP style PHP with the intent of better understanding OOP and how web crawlers work.
 # Features
 
+- Search sites
+   *    Displays title, URL and description
+- Search images
+    *   Hover over images to preview description (alt tag)
+    *   Masonary layout for searched images
+    *   Image search page responds dynamically
+- Organises search results by clicks/visits
+- Filters broken image results
+- Shows 'results found' for search term
+- Pagination system at the bottom of the search page
+- Clean homepage
 
 # Table of Contents 
 
@@ -39,3 +50,6 @@ To handle an edge case the following logic is implemented in the while-loop:
 # Preview Images
 
 Coming soon
+
+# Preview Video
+
