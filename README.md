@@ -9,6 +9,7 @@ Written primarily in OOP style PHP with the intent of better understanding OOP a
 - Search images
     *   Hover over images to preview description (alt tag)
     *   Masonary layout for searched images
+    *   Image preview using Fancybox
     *   Image search page responds dynamically
 - Organises search results by clicks/visits
 - Filters broken image results
