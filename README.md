@@ -16,11 +16,11 @@ Written primarily in OOP style PHP with the intent of better understanding OOP a
     *   Masonary layout for searched images
     *   Image preview using Fancybox
     *   Image search page responds dynamically
-- Organises search results by clicks/visits
-- Filters broken image results
-- Shows 'results found' for search term
-- Pagination system at the bottom of the search page
 - Clean homepage
+- Filters broken image results
+- Organises search results by clicks/visits
+- Pagination system at the bottom of the search page
+- Shows 'results found' for search term
 
 # Table of Contents 
 
@@ -40,7 +40,6 @@ Written primarily in OOP style PHP with the intent of better understanding OOP a
   - [Doogle Search - Images](#doogle-search---images)
   - [Pagination System](#pagination-system)
   - [doogleBot Crawl Form](#dooglebot-crawl-form)
-- [Preview Video](#preview-video)
 
 # Setup and Usage
 
@@ -107,6 +106,15 @@ Inside search.php, pagination is implemented
 
 In the example above, currentPage=11. 
 The number of pages to show is always 10.
+
+### Results Per Page
+
+Site search will return 20 results per page and image search will return 30 results per page.
+
+The results per page can be changed inside search.php on lines {83, 88} respectively. As indicated by the $pageSize variables:
+
+<img width="455" alt="Search-resultsPerPage" src="https://user-images.githubusercontent.com/10171446/165478400-f11c1be4-2c83-4559-8ccb-cba4550a64bd.png">
+
 
 ### Handling an edge case
 
