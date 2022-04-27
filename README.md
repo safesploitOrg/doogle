@@ -9,23 +9,9 @@ Written primarily in OOP style PHP with the intent of better understanding OOP a
 
 # Features
 
-- Search sites
-   *    Displays title, URL and description
-- Search images
-    *   Hover over images to preview description (alt tag)
-    *   Masonary layout for searched images
-    *   Image preview using Fancybox
-    *   Image search page responds dynamically
-- Organises search results by clicks/visits
-- Filters broken image results
-- Shows 'results found' for search term
-- Pagination system at the bottom of the search page
-- Clean homepage
 
 # Table of Contents 
 
-- [Doogle](#doogle)
-- [Features](#features)
 - [Setup and Usage](#setup-and-usage)
   - [Server Setup](#server-setup)
   - [Connecting PHP to MySQL Server](#connecting-php-to-mysql-server)
@@ -66,11 +52,21 @@ In the file 'doogle-tables-no-data.sql' the database will be created as 'doogle'
 
 ## Crawling Websites to Populate Images and Sites tables
 
-At the bottom of crawl.php the variable $startUrl is where to paste the URL of the website to be crawled:
+### Form-based crawl
+
+In your browser go to where the file is hosted http://127.0.0.1/crawl-formSubmit.php
+
+Paste the URL into the input field and press the Crawl button.
+
+### Manual crawl
+
+At the bottom of crawl-manual.php the variable $startUrl is where to paste the URL of the website to be crawled:
 
     $startUrl = "https://thehackernews.com/";
   
-Then in your browser go to where the file is hosted http://127.0.0.1/crawl.php
+Then in your browser go to where the file is hosted http://127.0.0.1/crawl-manual.php
+
+### Explination
 
 The crawling process will take some time, it will completely depend on the size of the website being crawled. 
 The page will continue to load (without output) until the crawl.php script finishes.
@@ -151,6 +147,13 @@ At the bottom of the page, we can view the next 10 pages.
 ### Bottom of Page 13
 
 <img width="883" alt="Image8-DoogleSearch-pagination-scrollingThrough" src="https://user-images.githubusercontent.com/10171446/165314716-08834b0c-4ba0-4e90-b466-58a57e91bf69.png">
+
+## doogleBot Crawl Form
+
+An HTML form to submit a URL for crawling
+
+<img width="581" alt="Image10-doogleBot-Crawler-formpng" src="https://user-images.githubusercontent.com/10171446/165463270-d36f7b78-379c-46da-b859-f5dde9304668.png">
+
 
 # Preview Video
 
