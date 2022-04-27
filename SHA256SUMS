@@ -1,0 +1,49 @@
+-----BEGIN PGP SIGNED MESSAGE-----
+Hash: SHA512
+
+59492c770b524a1c583598969f410864b42cbe50dba1567401d42925a21fdc3b  ./ajax/setBroken.php
+42b0a956fbb7e7c4d258b76f77a40bcc3f424e92b8df4e48029b6ac36814ce13  ./ajax/updateImageCount.php
+93c09e73205ae4cb9298787e456e7ba40a3a59913d4c7f7fa8231f3c0d57fb7e  ./ajax/updateLinkCount.php
+f6f3d53dd2240261f157695adf386a5c08014298c19f62ccf63cd162996892d0  ./assets/css/fancybox/3.3.5/jquery.fancybox.min.css
+d5acffdfb41dc1e41a2132bff2e67b0e1632f10cba48321abc5c33e09fa0d076  ./assets/css/style.css
+f72f0630f8cbe6b5a24094960e099eaf1f7be18af93c2f74f516f13b1e6212a0  ./assets/images/doogleLogo.png
+11e84e77b4b2ca65fdc45407601edd77acef60994d8dfb670fe6db6a6672dbb9  ./assets/images/favicon/android-chrome-192x192.png
+81506b473fe8709ea34e9974ede53b7bed210bbbd5b8f3541e9cc9fac2cd1fd8  ./assets/images/favicon/android-chrome-512x512.png
+30b13061a191ddd4eb62107fa20bc714db91c5b39d39e64e843ce5a118a13bf1  ./assets/images/favicon/apple-touch-icon.png
+a734688685e1d3eeb7c5b15267f31e7961aff394f3f68fc389a256b45e42970e  ./assets/images/favicon/favicon-16x16.png
+018136439b52bc1db7c84311f20435cfce95b5e191f5d8f36b27ce7eb5bc6064  ./assets/images/favicon/favicon-32x32.png
+09925a497bbd72a7850434f205f31d9ab8cfa0e4f727718731595314ac89d482  ./assets/images/favicon/favicon.ico
+bcb764f2e87fefd1f9c39cf0d3517ad4cbea2008cd925380aee23d9832e1fc2c  ./assets/images/icons/search.png
+88761e31eae97360d4dbdeedff92c4d151ec33492e9f1cdb34eb802762a9c125  ./assets/images/page.png
+4ea49f1436476f370da62494ae780cfc99d4cbdd5cfab48082be4ce2274ecc07  ./assets/images/pageEnd.png
+e771b2c0a69e5695ad7ff1a8bd7071fc6d46e6f9e3024acad6f743634d9c2e6d  ./assets/images/pageSelected.png
+61a1b5647ecafd1ae2fdd513262a394e16222b590bb82cc2a442f128cc6d4e52  ./assets/images/pageStart.png
+4dbe2075e08dfc008a9a1290dc149f6ee360215610cc1944bdb625c0aee3b83c  ./assets/js/fancybox/3.3.5/jquery.fancybox.min.js
+160a426ff2894252cd7cebbdd6d6b7da8fcd319c65b70468f10b6690c45d02ef  ./assets/js/jquery-3.3.1.min.js
+367d6afdfc741fb48d2d9310e47c3924b693459a74c882c0fc545ec5ed7d55d2  ./assets/js/masonry/4.2.2/masonry.pkgd.min.js
+19ada944019a8ef415a633317cc3d0924d5a0f2d91fe47ba1546e8844d7b308f  ./assets/js/script.js
+c798d95082d993b0de54f32e728515255f91e5c130476ff0b77089138aea1b5f  ./classes/DomDocumentParser.php
+1bd5e96382d6a3eddeec946080c96629e9aa56c2774a017fad24606f0c9f4244  ./classes/ImageResultsProvider.php
+748e777d13df22396e186ddadb825cf472c92d9bda7aa04aa19c2b1cf96de3ec  ./classes/SiteResultsProvider.php
+b0ca5b7eb0af35124f5caab1c334356fd3cfe5c2cea625f313336622e475df76  ./config.php
+371c7775b3cddddd12ff95ece2b8782e984ba869d4bce45cdca8e6c14ffa07a5  ./crawl-formSubmit.php
+62ac95f4e51efd41db713a049218ad9255b35350a2e070a6e1facc62d842550b  ./crawl-manual.php
+bec40c943cf20745f47210a73226f69c19c63a6c90a2cc6c23d223aa777f9ba9  ./doogle-tables-no-data.sql
+54346c28a4b984e342192c34c95cd849d641437f22a7b03303e729e286a2afa4  ./index.php
+2ec5c79665b679dbc290b3d753a3710fc732ac64e3e7e525324988e6507103f6  ./search.php
+-----BEGIN PGP SIGNATURE-----
+
+iQIzBAEBCgAdFiEEHj7kwug4oP7u+vqSNt6aWc2GnuIFAmJo/qQACgkQNt6aWc2G
+nuJKbA/+LDRw7bwjj9mz/60E7BMMrMSJKOhnVTxNIfuiK+HVwFh8NAUoVvR3S3qZ
+VJfS7igvmj/Ne6YDTpd45lVXhAPr1POx/RzwS0VGr270lacl1cyMq60dHrZu0wLc
+/rKyEbejFCqH16l6f+qfy7e4rhJFi/IM+tS+gJp7T0EQMSuNzrH9KgVc7H0LlfWZ
+tQy9Sll64y9TI/W80kzq2169ULgRoH3AQpWLBznaIPZo/EmKH/r57DV+WYHm10Z8
+Bu9tdGPDn3eh6IvvHfeFm+dSgskbnh8FTsa2VUaY0GZ1hnLAvENjAAV9CDuUBj5z
+KWZPhWIz+iM8RsMax13eA3TgNT+p7JLhHaeLtteyhXwWobgvTsgh/UichwmFqcPV
+nswJgTngJhRMkf8O0A3fQO3zZrKAU2rR5bJrMSMylhIvtpg38+/yp0a5xIkJhKwn
+scf9GV8brqT+q9y9wrwKfrgcWMTbUH07Iv9R7KwcNz3sz0lA2TgIAximg0ZbmeEp
+FjCL/sl6mhtK/LlR2blclMxQnEXOg/Y17LLDqxRuh/SzGDgoEBce7I36j8ZyQSfT
+z7wwufDMnsqoC5LoDONyfjhrnydmYRRJ9mVnSipz48ON/pPAo6jGyk78mmO3A0/P
+oVepSwM8n1HUHwnQmsXtoHyz1lL7n/H+X/pJcwO7lMVYEuCaxDQ=
+=M5Y1
+-----END PGP SIGNATURE-----
