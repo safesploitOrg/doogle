@@ -18,11 +18,16 @@ Written primarily in OOP style PHP with the intent of better understanding OOP a
   - [Crawling Websites to Populate Images and Sites tables](#crawling-websites-to-populate-images-and-sites-tables)
 - [Programming Logic](#programming-logic)
   - [Pagination](#pagination)
+  - [Image Search](#image-search)
+  - [Site Search - Trimming Results](#site-search---trimming-results)
+  - [Telemetry](#telemetry)
+  - [User-Agent](#user-agent)
 - [Preview Images](#preview-images)
   - [Doogle Homepage](#doogle-homepage)
   - [Doogle Search - Sites](#doogle-search---sites)
   - [Doogle Search - Images](#doogle-search---images)
   - [Pagination System](#pagination-system)
+  - [doogleBot Crawl Form](#dooglebot-crawl-form)
 - [Preview Video](#preview-video)
 
 # Setup and Usage
@@ -106,6 +111,69 @@ To handle an edge case the following logic is implemented in the while-loop:
     { ... }
     
     
+## Image Search
+
+### Image Captions
+
+To make image searches more informative, the 'alt' tag is part of the search term. As shown in ./classes/ImageResultsProvider.php line 34
+
+<img width="419" alt="ImageResultsProvider-query" src="https://user-images.githubusercontent.com/10171446/165472615-fd149596-3a39-4e48-8308-bd4f1ed16968.png">
+
+
+### Loading Images with JavaScript
+In the 'images' table there is a row 'broken' which tracks images which return an error.
+
+Because images are already loaded with a pure server-side solution, AJAX must be leveraged, loading images dynamically. Which is shown in ./assets/js/script.js
+
+
+<img width="319" alt="script js-loadImage-broken" src="https://user-images.githubusercontent.com/10171446/165471191-6119b5cf-dc77-49a4-b84d-12276232813a.png">
+
+
+
+
+### Masonry
+Image searches are using [Masonry - Cascading grid layout library](https://masonry.desandro.com/).
+
+Masonry allows images a grid layout which is responsive due to jQuery.
+The image below shows an example layout:
+
+<img width="428" alt="Masonry-item-layout" src="https://user-images.githubusercontent.com/10171446/165469864-97c2bec4-2af7-4987-917f-02885d407ba9.png">
+
+
+
+## Site Search - Trimming Results
+
+As shown in the preview images, Doogle when performing a site search will return (title, URL and description) for each result.
+
+However, to make some results easier to read, a trimming process is performed. Inside ./classes/SiteResultsProvider.php the function trimField() is called:
+
+<img width="380" alt="SiteResultsProvider-trim1" src="https://user-images.githubusercontent.com/10171446/165468731-9176be82-c3ed-4bf4-bcbb-bf5dd838398b.png">
+
+<img width="374" alt="SiteResultsProvider-trim2" src="https://user-images.githubusercontent.com/10171446/165468845-5e382320-71ce-4b6a-988b-8d4ddf3f341a.png">
+
+Title's are trimmed at 55 characters and description's are trimmed at 230 characters.
+
+
+## Telemetry
+
+Both the 'images' and 'sites' tables in the database have a row containing 'clicks' for each column.
+
+The 'clicks' field is increased each time a site is visited or image is previewed.
+
+When performing a search, results returned are organised in decending order of clicks.
+This behaviour is shown by the $query inside ./classes/SiteResultsProvider.php function getResultsHtml(). See line 43.
+
+<img width="443" alt="SiteResultsProvider-getResultsHtml" src="https://user-images.githubusercontent.com/10171446/165467418-37de4f8c-1901-4911-a7c9-33b42806f0bb.png">
+
+
+## User-Agent
+
+Inside ./classes/DomDocumentParser.php the user-agent data used during crawling is located.
+As indicated on line 9:
+
+<img width="481" alt="DomDocumentParser-bot" src="https://user-images.githubusercontent.com/10171446/165465964-2bba0582-2846-44f1-abd1-b51ac316b186.png">
+
+
 # Preview Images
 ## Doogle Homepage
 
