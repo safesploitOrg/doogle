@@ -245,4 +245,4 @@ An HTML form to submit a URL for crawling
 
 # Preview Video
 
-[Doogle demo - YouTube](https://youtu.be/clDt4Sg7ako)
+[Doogle Search demo - YouTube](https://youtu.be/clDt4Sg7ako)
