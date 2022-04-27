@@ -40,6 +40,7 @@ Written primarily in OOP style PHP with the intent of better understanding OOP a
   - [Doogle Search - Images](#doogle-search---images)
   - [Pagination System](#pagination-system)
   - [doogleBot Crawl Form](#dooglebot-crawl-form)
+- [Preview Video](#preview-video)
 
 # Setup and Usage
 
@@ -241,3 +242,7 @@ At the bottom of the page, we can view the next 10 pages.
 An HTML form to submit a URL for crawling
 
 <img width="581" alt="Image10-doogleBot-Crawler-formpng" src="https://user-images.githubusercontent.com/10171446/165463270-d36f7b78-379c-46da-b859-f5dde9304668.png">
+
+# Preview Video
+
+[Doogle demo - YouTube](https://youtu.be/clDt4Sg7ako)
