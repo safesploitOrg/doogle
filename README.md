@@ -1,5 +1,5 @@
 # Doogle
-Doogle is a search engine and web crawler which can search index websites and image, and then using keywords be searched later. 
+Doogle is a search engine and web crawler which can search indexed websites and image, and then using keywords be searched later. 
 
 Written primarily in OOP style PHP with the intent of better understanding OOP and how web crawlers work.
 
