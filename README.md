@@ -55,11 +55,21 @@ Once logged into the database via PHPMyAdmin under the **PHPMyAdmin > SQL** tab,
 
 <img width="960" alt="Image1-PHPMyAdmin" src="https://user-images.githubusercontent.com/10171446/165310962-7ec771d2-50a0-4117-87f8-60373f694e55.png">
 
+## SQL User Creation
+
+Amend the password _PASSWORD_HERE_ using a strong [random password](https://passwordsgenerator.net/).
+
+    mysql> CREATE USER IF NOT EXISTS 'doogle'@'127.0.0.1' IDENTIFIED BY 'PASSWORD_HERE';
+
 ## SQL User Permissions
 
 The SQL user 'doogle' must have SELECT, INSERT and UPDATE privileges:
 
-    mysql> GRANT SELECT, INSERT, UPDATE ON  `doogle`.* TO 'doogle'@'127.0.0.1';
+    mysql> GRANT SELECT, INSERT, UPDATE ON `doogle`.* TO 'doogle'@'127.0.0.1';
+    
+  - INSERT is used for crawling
+  - SELECT is required for the search engine to return queries
+  - UPDATE is required to amend the clicks and broken results (see ./ajax/) 
 
 ## Connecting PHP to MySQL Server
 
@@ -67,7 +77,7 @@ In the file config.php the following must be entered correctly for your database
 
     $dbname = "doogle";
     $dbhost = "127.0.0.1";
-    $dbuser = "root";
+    $dbuser = "doogle";
     $dbpass = "";
 
 In the file 'doogle-tables-no-data.sql' the database will be created as 'doogle', but the remaining parameters must still be filled.
