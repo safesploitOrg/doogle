@@ -57,9 +57,9 @@ Once logged into the database via PHPMyAdmin under the **PHPMyAdmin > SQL** tab,
 
 ## SQL User Permissions
 
-The SQL user 'doogle' must have SELECT and INSERT privileges:
+The SQL user 'doogle' must have SELECT, INSERT and UPDATE privileges:
 
-    mysql> GRANT SELECT, INSERT ON  `doogle`.* TO 'doogle'@'127.0.0.1';
+    mysql> GRANT SELECT, INSERT, UPDATE ON  `doogle`.* TO 'doogle'@'127.0.0.1';
 
 ## Connecting PHP to MySQL Server
 
