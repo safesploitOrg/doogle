@@ -55,6 +55,11 @@ Once logged into the database via PHPMyAdmin under the **PHPMyAdmin > SQL** tab,
 
 <img width="960" alt="Image1-PHPMyAdmin" src="https://user-images.githubusercontent.com/10171446/165310962-7ec771d2-50a0-4117-87f8-60373f694e55.png">
 
+## SQL User Permissions
+
+The SQL user 'doogle' must have SELECT and INSERT privileges:
+
+    mysql> GRANT SELECT, INSERT ON  `doogle`.* TO 'doogle'@'127.0.0.1';
 
 ## Connecting PHP to MySQL Server
 
