@@ -55,13 +55,13 @@ Once logged into the database via PHPMyAdmin under the **PHPMyAdmin > SQL** tab,
 
 <img width="960" alt="Image1-PHPMyAdmin" src="https://user-images.githubusercontent.com/10171446/165310962-7ec771d2-50a0-4117-87f8-60373f694e55.png">
 
-## SQL User Creation
+### SQL User Creation
 
 Amend the password _PASSWORD_HERE_ using a strong [random password](https://passwordsgenerator.net/).
 
     mysql> CREATE USER IF NOT EXISTS 'doogle'@'127.0.0.1' IDENTIFIED BY 'PASSWORD_HERE';
 
-## SQL User Permissions
+### SQL User Permissions
 
 The SQL user 'doogle' must have SELECT, INSERT and UPDATE privileges:
 
