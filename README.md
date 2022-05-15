@@ -1,5 +1,5 @@
 # Doogle
-Doogle is a search engine and web crawler which can search indexed websites and image, and then using keywords be searched later. 
+Doogle is a search engine and web crawler which can search indexed websites and images, and then use keywords to be searched later. 
 
 Written primarily in OOP style PHP with the intent of better understanding OOP and how web crawlers work.
 
@@ -13,7 +13,7 @@ Written primarily in OOP style PHP with the intent of better understanding OOP a
    *    Displays title, URL and description
 - Search images
     *   Hover over images to preview description (alt tag)
-    *   Masonary layout for searched images
+    *   Masonry layout for searched images
     *   Image preview using Fancybox
     *   Image search page responds dynamically
 - Clean homepage
@@ -157,7 +157,7 @@ To make image searches more informative, the 'alt' tag is part of the search ter
 
 
 ### Loading Images with JavaScript
-In the 'images' table there is a row 'broken' which tracks images which return an error.
+In the 'images' table, there is a row 'broken' which tracks images which return an error.
 
 Because images are already loaded with a pure server-side solution, AJAX must be leveraged, loading images dynamically. Which is shown in ./assets/js/script.js
 
@@ -196,7 +196,7 @@ Both the 'images' and 'sites' tables in the database have a row containing 'clic
 
 The 'clicks' field is increased each time a site is visited or image is previewed.
 
-When performing a search, results returned are organised in decending order of clicks.
+When performing a search, results returned are organised in descending order of clicks.
 This behaviour is shown by the $query inside ./classes/SiteResultsProvider.php function getResultsHtml(). See line 43.
 
 <img width="443" alt="SiteResultsProvider-getResultsHtml" src="https://user-images.githubusercontent.com/10171446/165467418-37de4f8c-1901-4911-a7c9-33b42806f0bb.png">
@@ -235,7 +235,7 @@ The title, image URL and site URL are available on the bottom left corner.
 
 ## Pagination System
 
-Naturally certain search terms may return many results like 'bbc'.
+Naturally, certain search terms may return many results like 'bbc'.
 
 To which Doogle only displays **20 sites** per page.
 At the bottom of the page, we can view the next 10 pages.
