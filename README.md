@@ -80,7 +80,7 @@ In the file config.php the following must be entered correctly for your database
     $dbuser = "doogle";
     $dbpass = "";
 
-In the file 'doogle-tables-no-data.sql' the database will be created as 'doogle', but the remaining parameters must still be filled.
+In the file 'doogle-tables-no-data.sql' the database will be created as 'doogle'.
 
 ## Crawling Websites to Populate Images and Sites tables
 
@@ -98,12 +98,12 @@ At the bottom of crawl-manual.php the variable $startUrl is where to paste the U
   
 Then in your browser go to where the file is hosted http://127.0.0.1/crawl-manual.php
 
-### Explination
+### Explanation
 
 The crawling process will take some time, it will completely depend on the size of the website being crawled. 
-The page will continue to load (without output) until the crawl.php script finishes.
+The page will continue to load (without output) until the `crawl.php` script finishes.
 
-Check the tables 'images' and 'sites' in the database to ensure they are being populated.
+Check the tables `images` and `sites` in the database to ensure they are being populated.
 
 <img width="960" alt="Image2-PHPMyAdmin" src="https://user-images.githubusercontent.com/10171446/165312292-c2830b80-365d-4a39-b176-8226bd0d7f65.png">
 
