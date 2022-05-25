@@ -59,13 +59,13 @@ Once logged into the database via PHPMyAdmin under the **PHPMyAdmin > SQL** tab,
 
 Amend the password _PASSWORD_HERE_ using a strong [random password](https://passwordsgenerator.net/).
 
-    mysql> CREATE USER IF NOT EXISTS 'doogle'@'127.0.0.1' IDENTIFIED BY 'PASSWORD_HERE';
+    mysql> CREATE USER IF NOT EXISTS 'doogle'@'localhost' IDENTIFIED BY 'PASSWORD_HERE';
 
 ### SQL User Permissions
 
 The SQL user 'doogle' must have SELECT, INSERT and UPDATE privileges:
 
-    mysql> GRANT SELECT, INSERT, UPDATE ON `doogle`.* TO 'doogle'@'127.0.0.1';
+    mysql> GRANT SELECT, INSERT, UPDATE ON `doogle`.* TO 'doogle'@'localhost';
     
   - INSERT is used for crawling
   - SELECT is required for the search engine to return queries
@@ -76,7 +76,7 @@ The SQL user 'doogle' must have SELECT, INSERT and UPDATE privileges:
 In the file config.php the following must be entered correctly for your database configuration:
 
     $dbname = "doogle";
-    $dbhost = "127.0.0.1";
+    $dbhost = "localhost";
     $dbuser = "doogle";
     $dbpass = "";
 
@@ -86,7 +86,7 @@ In the file 'doogle-tables-no-data.sql' the database will be created as 'doogle'
 
 ### Form-based crawl
 
-In your browser go to where the file is hosted http://127.0.0.1/crawl-formSubmit.php
+In your browser go to where the file is hosted http://localhost/crawl-formSubmit.php
 
 Paste the URL into the input field and press the Crawl button.
 
@@ -96,7 +96,7 @@ At the bottom of crawl-manual.php the variable $startUrl is where to paste the U
 
     $startUrl = "https://thehackernews.com/";
   
-Then in your browser go to where the file is hosted http://127.0.0.1/crawl-manual.php
+Then in your browser go to where the file is hosted http://localhost/crawl-manual.php
 
 ### Explanation
 
