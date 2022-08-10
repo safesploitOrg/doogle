@@ -46,7 +46,7 @@ Written primarily in OOP style PHP with the intent of better understanding OOP a
 
 ## Server Setup
 
-As of v1.0.0-beta.1 PHP >= 8.0 is not supported.
+v1.0.0-beta.1 is supported and tested in PHP 7.4, 8.0 and 8.1.
 
 Please refer to [XAMPP](https://www.apachefriends.org/index.html) for the web server, PHP server and MySQL server configuration.
 XAMPP is the simplest method as several servers are required to use Doogle.
@@ -56,6 +56,12 @@ XAMPP is the simplest method as several servers are required to use Doogle.
 Once logged into the database via PHPMyAdmin under the **PHPMyAdmin > SQL** tab, the content of 'doogle-tables-no-data.sql' can be pasted into the field
 
 <img width="960" alt="Image1-PHPMyAdmin" src="https://user-images.githubusercontent.com/10171446/165310962-7ec771d2-50a0-4117-87f8-60373f694e55.png">
+
+## PHP Dependencies
+
+    mysql
+    pdo_mysql
+    
 
 ### SQL User Creation
 
