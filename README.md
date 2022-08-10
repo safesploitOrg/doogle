@@ -46,6 +46,8 @@ Written primarily in OOP style PHP with the intent of better understanding OOP a
 
 ## Server Setup
 
+As of v1.0.0-beta.1 PHP >= 8.0 is not supported.
+
 Please refer to [XAMPP](https://www.apachefriends.org/index.html) for the web server, PHP server and MySQL server configuration.
 XAMPP is the simplest method as several servers are required to use Doogle.
 
