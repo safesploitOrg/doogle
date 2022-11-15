@@ -21,6 +21,7 @@ Written primarily in OOP style PHP with the intent of better understanding OOP a
 - Organises search results by clicks/visits
 - Pagination system at the bottom of the search page
 - Shows 'results found' for search term
+- Supports non-latin characters (UTF-8)
 
 # Table of Contents 
 
