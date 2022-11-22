@@ -1,11 +1,4 @@
 -- phpMyAdmin SQL Dump - No Data
--- version 5.1.1
--- https://www.phpmyadmin.net/
---
--- Host: 192.168.5.240
--- Generation Time: Apr 24, 2022 at 09:25 AM
--- Server version: 8.0.28-0ubuntu0.20.04.3
--- PHP Version: 7.4.24
 
 SET SQL_MODE = "NO_AUTO_VALUE_ON_ZERO";
 SET AUTOCOMMIT = 0;
@@ -21,7 +14,7 @@ SET time_zone = "+00:00";
 --
 -- Database: `doogle`
 --
-CREATE DATABASE IF NOT EXISTS `doogle` DEFAULT CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_ai_ci;
+CREATE DATABASE IF NOT EXISTS `doogle` DEFAULT CHARACTER SET utf8mb4;
 USE `doogle`;
 
 -- --------------------------------------------------------
@@ -38,7 +31,7 @@ CREATE TABLE `images` (
   `title` varchar(512) NOT NULL,
   `clicks` int(11) NOT NULL DEFAULT '0',
   `broken` tinyint(4) NOT NULL DEFAULT '0'
-) ENGINE=InnoDB DEFAULT CHARSET=latin1;
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 
 -- --------------------------------------------------------
 
@@ -53,7 +46,7 @@ CREATE TABLE `sites` (
   `description` varchar(512) NOT NULL,
   `keywords` varchar(512) NOT NULL,
   `clicks` int(11) NOT NULL DEFAULT '0'
-) ENGINE=InnoDB DEFAULT CHARSET=latin1;
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 
 -- --------------------------------------------------------
 
@@ -66,7 +59,7 @@ CREATE TABLE `users` (
   `username` varchar(100) NOT NULL,
   `email` varchar(150) NOT NULL,
   `password` varchar(255) NOT NULL
-) ENGINE=InnoDB DEFAULT CHARSET=latin1;
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 
 
 --
