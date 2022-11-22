@@ -2,9 +2,9 @@
 ob_start();
 
 $dbname = "doogle";
-$dbhost = "192.168.5.240";
-$dbuser = "root";
-$dbpass = "";
+$dbhost = "localhost";
+$dbuser = "doogle";
+$dbpass = "PASSWORD_HERE";
 
 try 
 {
