@@ -55,7 +55,7 @@ Two methods of setup are discussed.
 
 Docker configuration files are available at [doogle-docker](https://github.com/safesploit/doogle-docker).
 
-Presuming you already have [Docker](https://www.docker.com/) v3.9 (or greater) installed and configed.
+Presuming you already have [Docker](https://www.docker.com/) v3.9 (or greater) installed and configured.
 
     git clone https://github.com/safesploit/doogle-docker.git
     cd doogle-docker
