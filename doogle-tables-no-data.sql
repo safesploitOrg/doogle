@@ -12,6 +12,12 @@ SET time_zone = "+00:00";
 /*!40101 SET NAMES utf8mb4 */;
 
 --
+-- User Creation: `doogle`
+--
+CREATE USER IF NOT EXISTS 'doogle'@'%' IDENTIFIED BY 'PASSWORD_HERE';
+GRANT SELECT, INSERT, UPDATE ON `doogle`.* TO 'doogle'@'%';
+
+--
 -- Database: `doogle`
 --
 CREATE DATABASE IF NOT EXISTS `doogle` DEFAULT CHARACTER SET utf8mb4;
@@ -23,7 +29,7 @@ USE `doogle`;
 -- Table structure for table `images`
 --
 
-CREATE TABLE `images` (
+CREATE TABLE IF NOT EXISTS `images` (
   `id` int(11) NOT NULL,
   `siteUrl` varchar(512) NOT NULL,
   `imageUrl` varchar(512) NOT NULL,
@@ -39,7 +45,7 @@ CREATE TABLE `images` (
 -- Table structure for table `sites`
 --
 
-CREATE TABLE `sites` (
+CREATE TABLE IF NOT EXISTS `sites` (
   `id` int(11) NOT NULL,
   `url` varchar(512) NOT NULL,
   `title` varchar(512) NOT NULL,
@@ -54,7 +60,7 @@ CREATE TABLE `sites` (
 -- Table structure for table `users`
 --
 
-CREATE TABLE `users` (
+CREATE TABLE IF NOT EXISTS `users` (
   `id` int(11) NOT NULL,
   `username` varchar(100) NOT NULL,
   `email` varchar(150) NOT NULL,
