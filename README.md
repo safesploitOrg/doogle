@@ -26,7 +26,9 @@ Written primarily in OOP style PHP with the intent of better understanding OOP a
 # Table of Contents 
 
 - [Setup and Usage](#setup-and-usage)
+  - [Docker](#docker)
   - [Server Setup](#server-setup)
+  - [PHP Dependencies](#php-dependencies)
   - [Connecting PHP to MySQL Server](#connecting-php-to-mysql-server)
   - [Crawling Websites to Populate Images and Sites tables](#crawling-websites-to-populate-images-and-sites-tables)
 - [Programming Logic](#programming-logic)
@@ -44,6 +46,30 @@ Written primarily in OOP style PHP with the intent of better understanding OOP a
 - [Preview Video](#preview-video)
 
 # Setup and Usage
+
+Two methods of setup are discussed.
+- Docker (Easiest)
+- Server Setup
+
+## Docker
+
+Docker configuration files are available at [doogle-docker](https://github.com/safesploit/doogle-docker).
+
+Presuming you already have [Docker](https://www.docker.com/) v3.9 (or greater) installed and configured.
+
+    git clone https://github.com/safesploit/doogle-docker.git
+    cd doogle-docker
+    sh build.sh
+
+<p align="center">
+<img width="857" alt="Screenshot 2023-02-22 at 21 11 33" src="https://user-images.githubusercontent.com/10171446/220760089-71baee5a-19ce-43e6-9cd5-35ce9e143400.png">
+<img width="857" alt="image" src="https://user-images.githubusercontent.com/10171446/220760298-65e0b64e-3724-4e8e-b9ec-a86ba20d58c8.png">
+
+Doogle is now accessible via [localhost:8000](http://localhost:8000). 
+
+For debugging phpMyAdmin has also been included on [localhost:8001](http://localhost:8001).
+
+</p>
 
 ## Server Setup
 
@@ -95,7 +121,7 @@ In the file 'doogle-tables-no-data.sql' the database will be created as 'doogle'
 
 ### Form-based crawl
 
-In your browser go to where the file is hosted http://localhost/crawl-formSubmit.php
+In your browser go to where the file is hosted http://localhost/crawl.php
 
 Paste the URL into the input field and press the Crawl button.
 
