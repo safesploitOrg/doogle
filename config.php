@@ -2,7 +2,7 @@
 ob_start();
 
 $dbname = "doogle";
-$dbhost = "localhost";
+$dbhost = "mysql_db";
 $dbuser = "doogle";
 $dbpass = "PASSWORD_HERE";
 
