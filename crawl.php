@@ -1,6 +1,6 @@
 <?php
 include("config.php");
-include("classes/Crawller.php");
+include("classes/Crawler.php");
 include("classes/DomDocumentParser.php");
 
 if(isset($_SESSION['loggedin']))
@@ -241,9 +241,9 @@ function followLinks($url)
 <?php
 if (isset($_POST['url']))
 {
-	$crawllerObj = new Crawller($con);
+	$crawlerObj = new Crawler($con);
 	$startUrl = $_POST['url'];
-	// $crawllerObj->followLinks($startUrl);
+	// $crawlerObj->followLinks($startUrl);
 	followLinks($startUrl);
 }
 ?>

@@ -1,5 +1,5 @@
 <?php
-class Crawller 
+class Crawler 
 {
 	private $con;
 
