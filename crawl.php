@@ -1,5 +1,6 @@
 <?php
 include("config.php");
+include("classes/Crawler.php");
 include("classes/DomDocumentParser.php");
 
 if(isset($_SESSION['loggedin']))
@@ -124,11 +125,6 @@ function getDetails($url)
 	$description = str_replace("\n", "", $description);
 	$keywords = str_replace("\n", "", $keywords);
 
-	//Non-ASCII char encoding
-	// $title = json_encode($title);
-	// $description = json_encode($description);
-	// $keywords = json_encode($keywords);
-
 	if(linkExists($url))
 		echo "$url already exists<br>";
 	else if(insertLink($url, $title, $description, $keywords))
@@ -245,13 +241,9 @@ function followLinks($url)
 <?php
 if (isset($_POST['url']))
 {
+	$crawlerObj = new Crawler($con);
 	$startUrl = $_POST['url'];
+	// $crawlerObj->followLinks($startUrl);
 	followLinks($startUrl);
-	// $url = "https://pogoda.wp.pl/";
-	// $title = "Pogoda WP.pl - na dziś, na jutro, długoterminowa dla Polski, Europy i Świata";
-	// $description = "Prognoza pogody na dziś, jutro i najbliższe dni w WP.pl. Sprawdź jaka pogoda czeka Cię w ciągu najbliższych dni!";
-	// $keywords = "";
-	// insertLink($url, $title, $description, $keywords);
-
 }
 ?>
