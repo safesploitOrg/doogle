@@ -48,12 +48,12 @@ CREATE TABLE IF NOT EXISTS `images` (
 CREATE TABLE IF NOT EXISTS `sites` (
   `id` int(11) NOT NULL,
   `url` varchar(512) NOT NULL,
-  `title` varchar(512) NOT NULL,
-  `description` varchar(512) NOT NULL,
-  `keywords` varchar(512) NOT NULL,
+  `title` varchar(768) NOT NULL,
+  `description` varchar(1548) NOT NULL,
+  `keywords` varchar(1024) NOT NULL,
   `clicks` int(11) NOT NULL DEFAULT '0'
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
-
+--ALTER TABLE `sites` MODIFY COLUMN `keywords` VARCHAR(1024);
 -- --------------------------------------------------------
 
 --
