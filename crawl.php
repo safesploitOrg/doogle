@@ -1,5 +1,5 @@
 <?php
-include("classes/config.php");
+require("classes/config.php");
 include("classes/Crawler.php");
 include("classes/DomDocumentParser.php");
 
@@ -159,10 +159,19 @@ function getDetails($url)
 		}
 
 	}
+	/* https://github.com/marcialpaulg/Fixing-Cloudflare-Error-524 */
+	$spacer_size = 12; // increment me until it works
+	echo str_pad('', (1024 * $spacer_size), "\n"); 
+	// send 8kb of new line to browser (default), just make sure that this new line will not affect your code.
+	// if you have output compression, make sure your data will reach >8KB.
+
+	if(ob_get_level()) ob_end_clean();
 	
-	if($debuggingp){ //Each fitted with @ to supress PHP warnings when the variable doesn't exist.
+	if(isset($debuggingp)){
+		if($debuggingp){ //Each fitted with @ to supress PHP warnings when the variable doesn't exist.
 			echo "<b>URL:</b> ".@$url.", <b>Title:</b> ".@$title.", <b>Description:</b> ".@$description.", <b>keywords:</b> ".@$keywords."<br>"; //DEBUGGING sites
 			echo "<b>src:</b> <a href=".@$src.">".@$src."</a>, <b>alt:</b> ".@$alt.", <b>title:</b> ".@$title.", <b>url:</b> ".@$url."<br>"; //DEBUGGING images
+		}
 	}
 }
 
