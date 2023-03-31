@@ -11,7 +11,7 @@ class DomDocumentParser
 			'http'=>array('method'=>"GET", 'header'=>"User-Agent: doogleBot/0.1\n")
 			);
 		$context = stream_context_create($options);
-		$getConstants = file_get_contents($url, false, $context);
+		$getConstants = @file_get_contents($url, false, $context);
 
 		$this->doc = new DomDocument('1.0', 'utf-8');
 		@$this->doc->loadHTML($html . $getConstants);
