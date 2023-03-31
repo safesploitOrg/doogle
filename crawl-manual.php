@@ -1,11 +1,12 @@
 <?php
-include("config.php");
+include("classes/config.php");
 include("classes/DomDocumentParser.php");
 
 $alreadyCrawled = array();
 $crawling = array();
 $alreadyFoundImages = array();
 
+set_time_limit(0);
 
 function linkExists($url) 
 {
@@ -151,8 +152,10 @@ function getDetails($url)
 
 	}
 
-	echo "<b>URL:</b> $url, <b>Title:</b> $title, <b>Description:</b> $description, <b>keywords:</b> $keywords<br>"; //DEBUGGING sites
-	echo "<b>src:</b> <a href=$src>$src</a>, <b>alt:</b> $alt, <b>title:</b> $title, <b>url:</b> $url<br>"; //DEBUGGING images
+	if($debuggingp){ //Each fitted with @ to supress PHP warnings when the variable doesn't exist.
+			echo "<b>URL:</b> ".@$url.", <b>Title:</b> ".@$title.", <b>Description:</b> ".@$description.", <b>keywords:</b> ".@$keywords."<br>"; //DEBUGGING sites
+			echo "<b>src:</b> <a href=".@$src.">".@$src."</a>, <b>alt:</b> ".@$alt.", <b>title:</b> ".@$title.", <b>url:</b> ".@$url."<br>"; //DEBUGGING images
+	}
 }
 
 function followLinks($url)

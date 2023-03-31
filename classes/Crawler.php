@@ -158,9 +158,11 @@ class Crawler
             }
     
         }
-    
-        echo "<b>URL:</b> $url, <b>Title:</b> $title, <b>Description:</b> $description, <b>keywords:</b> $keywords<br>"; //DEBUGGING sites
-        echo "<b>src:</b> <a href=$src>$src</a>, <b>alt:</b> $alt, <b>title:</b> $title, <b>url:</b> $url<br>"; //DEBUGGING images
+		
+		if($debuggingp){ //Each fitted with @ to supress PHP warnings when the variable doesn't exist.
+			echo "<b>URL:</b> ".@$url.", <b>Title:</b> ".@$title.", <b>Description:</b> ".@$description.", <b>keywords:</b> ".@$keywords."<br>"; //DEBUGGING sites
+			echo "<b>src:</b> <a href=".@$src.">".@$src."</a>, <b>alt:</b> ".@$alt.", <b>title:</b> ".@$title.", <b>url:</b> ".@$url."<br>"; //DEBUGGING images
+		}
     }
     
     function followLinks($url)
@@ -193,8 +195,10 @@ class Crawler
                 getDetails($href);
             }
             //else return; //DEBUGGING
-    
-            echo ($href . "<br>"); //DEBUGGING
+			
+			if($debuggingp){
+				echo ($href . "<br>"); //DEBUGGING
+			}
         }
     
         array_shift($crawling);

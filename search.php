@@ -1,12 +1,13 @@
 <?php
-include("config.php");
+include("classes/config.php");
 include("classes/SiteResultsProvider.php");
 include("classes/ImageResultsProvider.php");
 
-if(isset($_GET['term']))
+
+if(isset($_GET['term']) && !empty($_GET['term']))
 	$term = $_GET['term'];
 else
-	exit("You must enter a search term!");
+	exit('<meta http-equiv="refresh" content="0;url='.dirname($_SERVER['SCRIPT_NAME']).'">'); //https://www.php.net/manual/en/reserved.variables.server.php#89567
 
 $type = isset($_GET["type"]) ? $_GET["type"] : "sites";
 $page = isset($_GET["page"]) ? $_GET["page"] : 1;
@@ -77,19 +78,19 @@ $page = isset($_GET["page"]) ? $_GET["page"] : 1;
 
 		<div class="mainResultsSection">
 			<?php
-			if($type == "sites") 
-			{
-				$resultsProvider = new SiteResultsProvider($con);
-				$pageSize = 20;
-			}
-			else if($type == "images")
+			//search.php?term=&type= will give php Warnings without this modification to default to something rather than nothing
+			if($type == "images")
 			{
 				$resultsProvider = new ImageResultsProvider($con);
 				$pageSize = 30;
 			}
-
+			else//($type == "sites") 
+			{
+				$resultsProvider = new SiteResultsProvider($con);
+				$pageSize = 20;
+			}
+			
 			$numResults = $resultsProvider->getNumResults($term);
-
 			echo "<p class='resultsCount'>$numResults results found</p>";
 			echo $resultsProvider->getResultsHtml($page, $pageSize, $term);
 			?>
