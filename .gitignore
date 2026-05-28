@@ -1,2 +1,18 @@
-
+# .gitignore for Doogle project
 config.php
+.env
+
+# Ignore vendor directory and PHPUnit cache files
+build/
+vendor/
+.phpunit.cache/
+.phpunit.result.cache
+
+# Ignore IDE and OS-specific files
+.idea/
+.vscode/
+.DS_Store
+Thumbs.db
+
+# Ignore scaffolding files
+ARCHITECTURE.md
