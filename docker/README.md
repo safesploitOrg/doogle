@@ -38,6 +38,19 @@ MySQL install. Override ports or passwords with shell environment variables:
 DOOGLE_APP_PORT=8080 DOOGLE_DB_PASSWORD=change-me ./docker/up.sh
 ```
 
+---
+
+## Crawl Websites
+
+```sh
+./docker/shell.sh
+```
+
+Or,
+
+- Doogle: http://localhost:8000/crawl.php
+
+
 ## Test
 
 ```sh
