@@ -3,53 +3,28 @@ require_once __DIR__ . '/../vendor/autoload.php';
 
 class ImageResultsProvider
 {
-	private $con;
+	private $images;
 	private $paginator;
 
-	public function __construct($con, $paginator = null)
+	public function __construct($con, $paginator = null, $images = null)
 	{
-		$this->con = $con;
 		$this->paginator = $paginator ?: new \Doogle\Search\Paginator();
+		$this->images = $images ?: new \Doogle\Repository\ImageRepository($con);
 	}
 
-	public function getNumResults($term) 
+	public function getNumResults($term)
 	{
-		$query = $this->con->prepare("SELECT COUNT(*) as total 
-										 FROM images 
-										 WHERE (title LIKE :term 
-										 OR alt LIKE :term)
-										 AND broken=0");
-
-		$searchTerm = "%". $term . "%";
-		$query->bindParam(":term", $searchTerm);
-		$query->execute();
-
-		$row = $query->fetch(PDO::FETCH_ASSOC);
-		return $row["total"];
+		return $this->images->countBySearchTerm((string) $term);
 	}
 
 	public function getResultsHtml($page, $pageSize, $term) 
 	{
 		$fromLimit = $this->paginator->offset((int) $page, (int) $pageSize);
 
-		$query = $this->con->prepare("SELECT * 
-										 FROM images 
-										 WHERE (title LIKE :term 
-										 OR alt LIKE :term)
-										 AND broken=0
-										 ORDER BY clicks DESC
-										 LIMIT :fromLimit, :pageSize");
-
-		$searchTerm = "%". $term . "%";
-		$query->bindParam(":term", $searchTerm);
-		$query->bindParam(":fromLimit", $fromLimit, PDO::PARAM_INT);
-		$query->bindParam(":pageSize", $pageSize, PDO::PARAM_INT);
-		$query->execute();
-
 		$resultsHtml = "<div class='imageResults'>";
 
 		$count = 0;
-		while($row = $query->fetch(PDO::FETCH_ASSOC)) 
+		foreach($this->images->search((string) $term, $fromLimit, (int) $pageSize) as $row)
 		{
 			$count++;
 			$id = $row["id"];

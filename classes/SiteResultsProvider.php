@@ -3,31 +3,20 @@ require_once __DIR__ . '/../vendor/autoload.php';
 
 class SiteResultsProvider
 {
-	private $con;
 	private $fieldFormatter;
 	private $paginator;
+	private $sites;
 
-	public function __construct($con, $paginator = null, $fieldFormatter = null)
+	public function __construct($con, $paginator = null, $fieldFormatter = null, $sites = null)
 	{
-		$this->con = $con;
 		$this->paginator = $paginator ?: new \Doogle\Search\Paginator();
 		$this->fieldFormatter = $fieldFormatter ?: new \Doogle\Search\FieldFormatter();
+		$this->sites = $sites ?: new \Doogle\Repository\SiteRepository($con);
 	}
 
-	public function getNumResults($term) 
+	public function getNumResults($term)
 	{
-		$query = $this->con->prepare("SELECT COUNT(*) as total 
-										 FROM sites WHERE title LIKE :term 
-										 OR url LIKE :term 
-										 OR keywords LIKE :term 
-										 OR description LIKE :term");
-
-		$searchTerm = "%". $term . "%";
-		$query->bindParam(":term", $searchTerm);
-		$query->execute();
-
-		$row = $query->fetch(PDO::FETCH_ASSOC);
-		return $row["total"];
+		return $this->sites->countBySearchTerm((string) $term);
 	}
 
 	public function getResultsHtml($page, $pageSize, $term) 
@@ -41,23 +30,9 @@ class SiteResultsProvider
 		*/
 		$fromLimit = $this->paginator->offset((int) $page, (int) $pageSize);
 
-		$query = $this->con->prepare("SELECT * 
-										 FROM sites WHERE title LIKE :term 
-										 OR url LIKE :term 
-										 OR keywords LIKE :term 
-										 OR description LIKE :term
-										 ORDER BY clicks DESC
-										 LIMIT :fromLimit, :pageSize");
-
-		$searchTerm = "%". $term . "%";
-		$query->bindParam(":term", $searchTerm);
-		$query->bindParam(":fromLimit", $fromLimit, PDO::PARAM_INT);
-		$query->bindParam(":pageSize", $pageSize, PDO::PARAM_INT);
-		$query->execute();
-
 		$resultsHtml = "<div class='siteResults'>";
 
-		while($row = $query->fetch(PDO::FETCH_ASSOC)) 
+		foreach($this->sites->search((string) $term, $fromLimit, (int) $pageSize) as $row)
 		{
 			$id = $row["id"];
 			$url = $row["url"];
