@@ -1,5 +1,6 @@
 # Doogle Architecture
 
+> **Progress** 
 > **Status:** Source of truth for modernising Doogle  
 > **Audience:** Maintainer, Codex, GitHub Copilot, contributors  
 > **Repository:** `safesploitOrg/doogle`  
