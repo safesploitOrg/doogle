@@ -47,9 +47,12 @@ jobs:
       - name: Generate SBOM
         run: composer sbom
 
+      - name: Set artifact date
+        run: echo "ARTIFACT_DATE=$(date +%F)" >> "$GITHUB_ENV"
+
       - name: Upload SBOM
         uses: actions/upload-artifact@v4
         with:
-          name: doogle-sbom
+          name: doogle-sbom-cyclonedx-${{ env.ARTIFACT_DATE }}-${{ github.run_number }}
           path: build/sbom.cdx.json
           if-no-files-found: error
