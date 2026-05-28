@@ -810,6 +810,8 @@ Every pull request should prove:
 
 ### 12.2 Initial GitHub Actions Workflow
 
+- NOTE: TODO: refactor MySQL to MariaDB
+
 ```yaml
 name: CI
 
