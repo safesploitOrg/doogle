@@ -6,7 +6,7 @@ namespace Doogle\Repository;
 
 use PDO;
 
-final class ImageRepository
+final class ImageRepository implements ImageSearchRepository
 {
     public function __construct(private readonly PDO $pdo)
     {

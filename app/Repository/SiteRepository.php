@@ -6,7 +6,7 @@ namespace Doogle\Repository;
 
 use PDO;
 
-final class SiteRepository
+final class SiteRepository implements SiteSearchRepository
 {
     public function __construct(private readonly PDO $pdo)
     {

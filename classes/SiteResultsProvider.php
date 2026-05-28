@@ -4,40 +4,33 @@ require_once __DIR__ . '/../vendor/autoload.php';
 class SiteResultsProvider
 {
 	private $fieldFormatter;
-	private $paginator;
-	private $sites;
+	private $searchService;
 
-	public function __construct($con, $paginator = null, $fieldFormatter = null, $sites = null)
+	public function __construct($con, $paginator = null, $fieldFormatter = null, $sites = null, $searchService = null)
 	{
-		$this->paginator = $paginator ?: new \Doogle\Search\Paginator();
+		$paginator = $paginator ?: new \Doogle\Search\Paginator();
 		$this->fieldFormatter = $fieldFormatter ?: new \Doogle\Search\FieldFormatter();
-		$this->sites = $sites ?: new \Doogle\Repository\SiteRepository($con);
+		$sites = $sites ?: new \Doogle\Repository\SiteRepository($con);
+		$this->searchService = $searchService ?: new \Doogle\Search\SearchService($sites, $paginator);
 	}
 
 	public function getNumResults($term)
 	{
-		return $this->sites->countBySearchTerm((string) $term);
+		return $this->searchService->count((string) $term);
 	}
 
-	public function getResultsHtml($page, $pageSize, $term) 
+	public function getResultsHtml($page, $pageSize, $term)
 	{
-		/*
-			Pagination system logic ($fromLimit)
-			page1: (1 - 1) * 20 = 0
-			page2: (2 - 1) * 20 = 20
-			page3: (3 - 1) * 20 = 40
-			...
-		*/
-		$fromLimit = $this->paginator->offset((int) $page, (int) $pageSize);
+		$searchPage = $this->searchService->search((string) $term, (int) $page, (int) $pageSize);
 
 		$resultsHtml = "<div class='siteResults'>";
 
-		foreach($this->sites->search((string) $term, $fromLimit, (int) $pageSize) as $row)
+		foreach($searchPage->results as $result)
 		{
-			$id = $row["id"];
-			$url = $row["url"];
-			$title = $row["title"];
-			$description = $row["description"];
+			$id = $result->id;
+			$url = $result->url;
+			$title = $result->title;
+			$description = $result->description;
 
 			$title = $this->trimField($title, 55);
 			$description = $this->trimField($description, 230);

@@ -3,43 +3,34 @@ require_once __DIR__ . '/../vendor/autoload.php';
 
 class ImageResultsProvider
 {
-	private $images;
-	private $paginator;
+	private $imageSearchService;
 
-	public function __construct($con, $paginator = null, $images = null)
+	public function __construct($con, $paginator = null, $images = null, $imageSearchService = null)
 	{
-		$this->paginator = $paginator ?: new \Doogle\Search\Paginator();
-		$this->images = $images ?: new \Doogle\Repository\ImageRepository($con);
+		$paginator = $paginator ?: new \Doogle\Search\Paginator();
+		$images = $images ?: new \Doogle\Repository\ImageRepository($con);
+		$this->imageSearchService = $imageSearchService ?: new \Doogle\Search\ImageSearchService($images, $paginator);
 	}
 
 	public function getNumResults($term)
 	{
-		return $this->images->countBySearchTerm((string) $term);
+		return $this->imageSearchService->count((string) $term);
 	}
 
-	public function getResultsHtml($page, $pageSize, $term) 
+	public function getResultsHtml($page, $pageSize, $term)
 	{
-		$fromLimit = $this->paginator->offset((int) $page, (int) $pageSize);
+		$searchPage = $this->imageSearchService->search((string) $term, (int) $page, (int) $pageSize);
 
 		$resultsHtml = "<div class='imageResults'>";
 
 		$count = 0;
-		foreach($this->images->search((string) $term, $fromLimit, (int) $pageSize) as $row)
+		foreach($searchPage->results as $result)
 		{
 			$count++;
-			$id = $row["id"];
-			$imageUrl = $row["imageUrl"];
-			$siteUrl = $row["siteUrl"];
-			$title = $row["title"];
-			$alt = $row["alt"];
+			$imageUrl = $result->imageUrl;
+			$siteUrl = $result->siteUrl;
+			$displayText = $result->displayText();
 
-			if($title)
-				$displayText = $title;
-			else if($alt)
-				$displayText = $alt;
-			else
-				$displayText = $imageUrl;
-			
 			$resultsHtml .= "<div class='gridItem image$count'>
 								<a href='$imageUrl' data-fancybox data-caption='$displayText'
 									data-siteurl='$siteUrl'>
