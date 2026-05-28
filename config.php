@@ -1,18 +1,14 @@
 <?php
+require_once __DIR__ . '/vendor/autoload.php';
+
+use Doogle\Database\ConnectionFactory;
+
 ob_start();
 
-$dbname = "doogle";
-$dbhost = "mysql_db";
-$dbuser = "doogle";
-$dbpass = "PASSWORD_HERE";
-
-try 
-{
-	$con = new PDO("mysql:dbname=$dbname;host=$dbhost", "$dbuser", "$dbpass");
-	$con->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_WARNING);
-}
-catch(PDOExeption $e) 
-{
+try {
+	$connectionFactory = ConnectionFactory::fromProjectRoot(__DIR__);
+	$con = $connectionFactory->create();
+} catch (PDOException $e) {
 	echo "Connection failed: " . $e->getMessage();
 }
 ?>
