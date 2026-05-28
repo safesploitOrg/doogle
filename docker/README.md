@@ -60,7 +60,7 @@ Or,
 ## Stop
 
 ```sh
-./docker/down.sh
+./docker/down.shxl
 ```
 
 To remove the MySQL volume and re-run schema bootstrap:
