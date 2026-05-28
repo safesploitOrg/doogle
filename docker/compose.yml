@@ -19,6 +19,11 @@ services:
       DB_PASSWORD: ${DOOGLE_DB_PASSWORD:-doogle}
       DB_CHARSET: utf8mb4
       DB_ERRMODE: warning
+      CRAWLER_USER_AGENT: doogleBot/1.0
+      CRAWLER_MAX_DEPTH: "2"
+      CRAWLER_TIMEOUT_SECONDS: "10"
+      CRAWLER_MAX_PAGES_PER_JOB: "100"
+      CRAWLER_MAX_RESPONSE_BYTES: "1048576"
       CRAWLER_ALLOW_PRIVATE_NETWORKS: "false"
     ports:
       - "${DOOGLE_APP_PORT:-8000}:80"
