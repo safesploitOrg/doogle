@@ -53,6 +53,6 @@ jobs:
       - name: Upload SBOM
         uses: actions/upload-artifact@v4
         with:
-          name: doogle_sbom_cyclonedx_${{ env.ARTIFACT_DATE }}_${{ github.run_number }}
+          name: doogle_sbom_cyclonedx_${{ env.ARTIFACT_DATE }}_R${{ github.run_number }}
           path: build/sbom.cdx.json
           if-no-files-found: error
