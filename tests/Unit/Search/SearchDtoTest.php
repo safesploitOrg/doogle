@@ -54,17 +54,17 @@ final class SearchDtoTest extends TestCase
     {
         self::assertSame(
             'Title',
-            new ImageResult(1, 'https://example.com', 'https://example.com/a.png', 'Alt', 'Title', 0, false)
+            (new ImageResult(1, 'https://example.com', 'https://example.com/a.png', 'Alt', 'Title', 0, false))
                 ->displayText()
         );
         self::assertSame(
             'Alt',
-            new ImageResult(1, 'https://example.com', 'https://example.com/a.png', 'Alt', '', 0, false)
+            (new ImageResult(1, 'https://example.com', 'https://example.com/a.png', 'Alt', '', 0, false))
                 ->displayText()
         );
         self::assertSame(
             'https://example.com/a.png',
-            new ImageResult(1, 'https://example.com', 'https://example.com/a.png', '', '', 0, false)
+            (new ImageResult(1, 'https://example.com', 'https://example.com/a.png', '', '', 0, false))
                 ->displayText()
         );
     }

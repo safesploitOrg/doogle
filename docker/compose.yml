@@ -1,0 +1,61 @@
+name: doogle
+
+services:
+  app:
+    build:
+      context: ..
+      dockerfile: docker/php/Dockerfile
+    depends_on:
+      mysql_db:
+        condition: service_healthy
+    environment:
+      APP_ENV: local
+      APP_DEBUG: "true"
+      APP_URL: http://localhost:${DOOGLE_APP_PORT:-8000}
+      DB_HOST: mysql_db
+      DB_PORT: "3306"
+      DB_DATABASE: doogle
+      DB_USERNAME: doogle
+      DB_PASSWORD: ${DOOGLE_DB_PASSWORD:-doogle}
+      DB_CHARSET: utf8mb4
+      DB_ERRMODE: warning
+      CRAWLER_ALLOW_PRIVATE_NETWORKS: "false"
+    ports:
+      - "${DOOGLE_APP_PORT:-8000}:80"
+    volumes:
+      - ..:/var/www/html
+      - composer_vendor:/var/www/html/vendor
+
+  mysql_db:
+    image: mysql:8.4
+    environment:
+      MYSQL_DATABASE: doogle
+      MYSQL_USER: doogle
+      MYSQL_PASSWORD: ${DOOGLE_DB_PASSWORD:-doogle}
+      MYSQL_ROOT_PASSWORD: ${DOOGLE_DB_ROOT_PASSWORD:-root}
+    ports:
+      - "${DOOGLE_DB_PORT:-3307}:3306"
+    volumes:
+      - mysql_data:/var/lib/mysql
+      - ../doogle-tables-no-data.sql:/docker-entrypoint-initdb.d/001_schema.sql:ro
+    healthcheck:
+      test: ["CMD-SHELL", "mysqladmin ping -h 127.0.0.1 -uroot -p$${MYSQL_ROOT_PASSWORD} --silent"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+
+  phpmyadmin:
+    image: phpmyadmin:5
+    depends_on:
+      mysql_db:
+        condition: service_healthy
+    environment:
+      PMA_HOST: mysql_db
+      PMA_USER: root
+      PMA_PASSWORD: ${DOOGLE_DB_ROOT_PASSWORD:-root}
+    ports:
+      - "${DOOGLE_PHPMYADMIN_PORT:-8081}:80"
+
+volumes:
+  composer_vendor:
+  mysql_data:
