@@ -1,11 +1,15 @@
 <?php
+require_once __DIR__ . '/../vendor/autoload.php';
+
 class ImageResultsProvider
 {
 	private $con;
+	private $paginator;
 
-	public function __construct($con) 
+	public function __construct($con, $paginator = null)
 	{
 		$this->con = $con;
+		$this->paginator = $paginator ?: new \Doogle\Search\Paginator();
 	}
 
 	public function getNumResults($term) 
@@ -26,7 +30,7 @@ class ImageResultsProvider
 
 	public function getResultsHtml($page, $pageSize, $term) 
 	{
-		$fromLimit = ($page - 1) * $pageSize;
+		$fromLimit = $this->paginator->offset((int) $page, (int) $pageSize);
 
 		$query = $this->con->prepare("SELECT * 
 										 FROM images 

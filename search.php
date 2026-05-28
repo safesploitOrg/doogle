@@ -1,4 +1,6 @@
 <?php
+require_once __DIR__ . '/vendor/autoload.php';
+
 include("config.php");
 include("classes/SiteResultsProvider.php");
 include("classes/ImageResultsProvider.php");
@@ -9,7 +11,8 @@ else
 	exit("You must enter a search term!");
 
 $type = isset($_GET["type"]) ? $_GET["type"] : "sites";
-$page = isset($_GET["page"]) ? $_GET["page"] : 1;
+$paginator = new \Doogle\Search\Paginator();
+$page = $paginator->normalizePage(isset($_GET["page"]) ? (int) $_GET["page"] : 1);
 ?>
 
 <!DOCTYPE html>

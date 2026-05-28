@@ -23,7 +23,7 @@
         "phpstan/phpstan": "^2.2"
     },
     "scripts": {
-        "analyse": "phpstan analyse ./assets ./classes",
+        "analyse": "phpstan analyse ./app ./assets ./classes",
         "test": "phpunit --configuration phpunit.xml"
     }
 }

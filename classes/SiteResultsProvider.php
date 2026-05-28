@@ -1,11 +1,17 @@
 <?php
+require_once __DIR__ . '/../vendor/autoload.php';
+
 class SiteResultsProvider
 {
 	private $con;
+	private $fieldFormatter;
+	private $paginator;
 
-	public function __construct($con) 
+	public function __construct($con, $paginator = null, $fieldFormatter = null)
 	{
 		$this->con = $con;
+		$this->paginator = $paginator ?: new \Doogle\Search\Paginator();
+		$this->fieldFormatter = $fieldFormatter ?: new \Doogle\Search\FieldFormatter();
 	}
 
 	public function getNumResults($term) 
@@ -33,7 +39,7 @@ class SiteResultsProvider
 			page3: (3 - 1) * 20 = 40
 			...
 		*/
-		$fromLimit = ($page - 1) * $pageSize;
+		$fromLimit = $this->paginator->offset((int) $page, (int) $pageSize);
 
 		$query = $this->con->prepare("SELECT * 
 										 FROM sites WHERE title LIKE :term 
@@ -77,10 +83,9 @@ class SiteResultsProvider
 		return $resultsHtml;
 	}
 
-	private function trimField($string, $characterLimit) 
+	private function trimField($string, $characterLimit)
 	{
-		$dots = strlen($string) > $characterLimit ? "..." : "";
-		return substr($string, 0, $characterLimit) . $dots;
-	}	
+		return $this->fieldFormatter->trim((string) $string, (int) $characterLimit);
+	}
 }
 ?>
