@@ -15,4 +15,4 @@ vendor/
 Thumbs.db
 
 # Ignore scaffolding files
-ARCHITECTURE.md
+# ARCHITECTURE.md
