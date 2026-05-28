@@ -40,7 +40,7 @@ final class ImageRepositoryTest extends TestCase
         self::assertSame(1, $this->repository->countBySearchTerm('linux'));
     }
 
-    public function testSearchReturnsImagesOrderedByClicks(): void
+    public function testSearchReturnsImagesOrderedByClicksWhenRelevanceIsEqual(): void
     {
         $this->insertImage('https://example.com/site', 'https://example.com/one.png', 'Linux', 'Linux One', 3, 0);
         $this->insertImage('https://example.com/site', 'https://example.com/two.png', 'Linux', 'Linux Two', 9, 0);
@@ -49,6 +49,50 @@ final class ImageRepositoryTest extends TestCase
 
         self::assertSame('https://example.com/two.png', $results[0]['imageUrl']);
         self::assertSame('https://example.com/one.png', $results[1]['imageUrl']);
+        self::assertArrayHasKey('rankingScore', $results[0]);
+    }
+
+    public function testSearchRanksTitleMatchesAboveHigherClickedAltMatches(): void
+    {
+        $this->insertImage(
+            'https://example.com/site',
+            'https://example.com/title.png',
+            'Security diagram',
+            'Linux Architecture',
+            1,
+            0
+        );
+        $this->insertImage(
+            'https://example.com/site',
+            'https://example.com/alt.png',
+            'Linux diagram',
+            'Security Architecture',
+            90,
+            0
+        );
+
+        $results = $this->repository->search('linux', 0, 30);
+
+        self::assertSame('https://example.com/title.png', $results[0]['imageUrl']);
+        self::assertSame('https://example.com/alt.png', $results[1]['imageUrl']);
+    }
+
+    public function testSearchCanMatchImageUrl(): void
+    {
+        $this->insertImage(
+            'https://example.com/site',
+            'https://example.com/linux-diagram.png',
+            'Architecture',
+            'Diagram',
+            1,
+            0
+        );
+
+        $results = $this->repository->search('linux', 0, 30);
+
+        self::assertSame(1, $this->repository->countBySearchTerm('linux'));
+        self::assertCount(1, $results);
+        self::assertSame('https://example.com/linux-diagram.png', $results[0]['imageUrl']);
     }
 
     public function testSearchAppliesOffsetAndLimit(): void

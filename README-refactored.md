@@ -60,6 +60,7 @@ Completed changes so far:
 - Crawler hardening now blocks unsafe/private URLs by default and enforces depth, page, timeout, and response-size limits.
 - Docker files live in `docker/` for local app, MySQL, and phpMyAdmin testing.
 - GitHub Actions CI runs Composer validation, dependency install, PHPUnit, PHPStan, PHPCS, and CycloneDX SBOM generation.
+- Search ranking now uses field relevance with a bounded click boost; MySQL full-text indexes are included for site and image search.
 
 Local quality checks:
 
@@ -258,8 +259,9 @@ Both the 'images' and 'sites' tables in the database have a row containing 'clic
 
 The 'clicks' field is increased each time a site is visited or image is previewed.
 
-When performing a search, results returned are organised in descending order of clicks.
-This behaviour is shown by the $query inside ./classes/SiteResultsProvider.php function getResultsHtml(). See line 43.
+When performing a search, results are ranked by relevance first and then boosted by clicks.
+Title matches are weighted highest, followed by keyword/description/URL matches for site search and alt/image URL matches for image search.
+Click count still influences ordering when results are otherwise similarly relevant.
 
 <img width="443" alt="SiteResultsProvider-getResultsHtml" src="https://user-images.githubusercontent.com/10171446/165467418-37de4f8c-1901-4911-a7c9-33b42806f0bb.png">
 

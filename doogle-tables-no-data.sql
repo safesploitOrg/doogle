@@ -76,13 +76,15 @@ CREATE TABLE IF NOT EXISTS `users` (
 -- Indexes for table `images`
 --
 ALTER TABLE `images`
-  ADD PRIMARY KEY (`id`);
+  ADD PRIMARY KEY (`id`),
+  ADD FULLTEXT KEY `ft_images_search` (`title`, `alt`, `imageUrl`);
 
 --
 -- Indexes for table `sites`
 --
 ALTER TABLE `sites`
-  ADD PRIMARY KEY (`id`);
+  ADD PRIMARY KEY (`id`),
+  ADD FULLTEXT KEY `ft_sites_search` (`title`, `description`, `keywords`, `url`);
 
 --
 -- Indexes for table `users`

@@ -40,7 +40,7 @@ final class SiteRepositoryTest extends TestCase
         self::assertSame(2, $this->repository->countBySearchTerm('server'));
     }
 
-    public function testSearchReturnsSitesOrderedByClicks(): void
+    public function testSearchReturnsSitesOrderedByClicksWhenRelevanceIsEqual(): void
     {
         $this->insertSite('https://example.com/one', 'Linux One', 'Linux', 'linux', 3);
         $this->insertSite('https://example.com/two', 'Linux Two', 'Linux', 'linux', 9);
@@ -49,6 +49,30 @@ final class SiteRepositoryTest extends TestCase
 
         self::assertSame('https://example.com/two', $results[0]['url']);
         self::assertSame('https://example.com/one', $results[1]['url']);
+        self::assertArrayHasKey('rankingScore', $results[0]);
+    }
+
+    public function testSearchRanksTitleMatchesAboveHigherClickedDescriptionMatches(): void
+    {
+        $this->insertSite(
+            'https://example.com/title',
+            'Linux Security Guide',
+            'Hardening notes',
+            'security',
+            1
+        );
+        $this->insertSite(
+            'https://example.com/description',
+            'Security Notes',
+            'Linux hardening checklist',
+            'security',
+            90
+        );
+
+        $results = $this->repository->search('linux', 0, 20);
+
+        self::assertSame('https://example.com/title', $results[0]['url']);
+        self::assertSame('https://example.com/description', $results[1]['url']);
     }
 
     public function testSearchAppliesOffsetAndLimit(): void

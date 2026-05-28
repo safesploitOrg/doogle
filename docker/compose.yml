@@ -31,6 +31,7 @@ services:
       - ..:/var/www/html
       - composer_vendor:/var/www/html/vendor
 
+# TODO: Migrate to MariaDB once the healthcheck supports it
   mysql_db:
     image: mysql:8.4
     environment:

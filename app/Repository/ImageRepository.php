@@ -5,9 +5,12 @@ declare(strict_types=1);
 namespace Doogle\Repository;
 
 use PDO;
+use PDOStatement;
 
 final class ImageRepository implements ImageSearchRepository
 {
+    private const IMAGE_FULL_TEXT_COLUMNS = 'title, alt, imageUrl';
+
     public function __construct(private readonly PDO $pdo)
     {
     }
@@ -17,12 +20,11 @@ final class ImageRepository implements ImageSearchRepository
         $statement = $this->pdo->prepare(
             'SELECT COUNT(*) AS total
              FROM images
-             WHERE (title LIKE :term
-                OR alt LIKE :term)
+             WHERE ' . $this->imageWhereSql() . '
                AND broken = 0'
         );
 
-        $statement->bindValue(':term', '%' . $term . '%');
+        $this->bindImageWhereTerms($statement, $term);
         $statement->execute();
 
         return (int) $statement->fetchColumn();
@@ -34,16 +36,17 @@ final class ImageRepository implements ImageSearchRepository
     public function search(string $term, int $offset, int $limit): array
     {
         $statement = $this->pdo->prepare(
-            'SELECT *
+            'SELECT *,
+                    ' . $this->imageRankingSql() . ' AS rankingScore
              FROM images
-             WHERE (title LIKE :term
-                OR alt LIKE :term)
+             WHERE ' . $this->imageWhereSql() . '
                AND broken = 0
-             ORDER BY clicks DESC
+             ORDER BY rankingScore DESC, clicks DESC, id DESC
              LIMIT :fromLimit, :pageSize'
         );
 
-        $statement->bindValue(':term', '%' . $term . '%');
+        $this->bindImageWhereTerms($statement, $term);
+        $this->bindImageRankingTerms($statement, $term);
         $statement->bindValue(':fromLimit', max(0, $offset), PDO::PARAM_INT);
         $statement->bindValue(':pageSize', max(0, $limit), PDO::PARAM_INT);
         $statement->execute();
@@ -65,5 +68,73 @@ final class ImageRepository implements ImageSearchRepository
         $statement->bindValue(':src', $imageUrl);
 
         return $statement->execute();
+    }
+
+    private function imageWhereSql(): string
+    {
+        $conditions = [
+            'title LIKE :whereTitleTerm',
+            'alt LIKE :whereAltTerm',
+            'imageUrl LIKE :whereImageUrlTerm',
+        ];
+
+        if ($this->isMysql()) {
+            array_unshift(
+                $conditions,
+                'MATCH(' . self::IMAGE_FULL_TEXT_COLUMNS . ') '
+                    . 'AGAINST (:whereFullTextTerm IN NATURAL LANGUAGE MODE)'
+            );
+        }
+
+        return '(' . implode(' OR ', $conditions) . ')';
+    }
+
+    private function imageRankingSql(): string
+    {
+        $scores = [
+            'CASE WHEN title LIKE :rankTitleTerm THEN 100 ELSE 0 END',
+            'CASE WHEN alt LIKE :rankAltTerm THEN 60 ELSE 0 END',
+            'CASE WHEN imageUrl LIKE :rankImageUrlTerm THEN 20 ELSE 0 END',
+            '(CASE WHEN clicks > 100 THEN 100 ELSE clicks END * 0.1)',
+        ];
+
+        if ($this->isMysql()) {
+            array_unshift(
+                $scores,
+                '(MATCH(' . self::IMAGE_FULL_TEXT_COLUMNS . ') '
+                    . 'AGAINST (:rankFullTextTerm IN NATURAL LANGUAGE MODE) * 50)'
+            );
+        }
+
+        return '(' . implode(' + ', $scores) . ')';
+    }
+
+    private function bindImageWhereTerms(PDOStatement $statement, string $term): void
+    {
+        if ($this->isMysql()) {
+            $statement->bindValue(':whereFullTextTerm', $term);
+        }
+
+        $likeTerm = '%' . $term . '%';
+        $statement->bindValue(':whereTitleTerm', $likeTerm);
+        $statement->bindValue(':whereAltTerm', $likeTerm);
+        $statement->bindValue(':whereImageUrlTerm', $likeTerm);
+    }
+
+    private function bindImageRankingTerms(PDOStatement $statement, string $term): void
+    {
+        if ($this->isMysql()) {
+            $statement->bindValue(':rankFullTextTerm', $term);
+        }
+
+        $likeTerm = '%' . $term . '%';
+        $statement->bindValue(':rankTitleTerm', $likeTerm);
+        $statement->bindValue(':rankAltTerm', $likeTerm);
+        $statement->bindValue(':rankImageUrlTerm', $likeTerm);
+    }
+
+    private function isMysql(): bool
+    {
+        return $this->pdo->getAttribute(PDO::ATTR_DRIVER_NAME) === 'mysql';
     }
 }
