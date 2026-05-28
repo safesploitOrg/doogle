@@ -11,6 +11,9 @@ on:
       - dev-refactor
   workflow_dispatch:
 
+permissions:
+  contents: read
+
 jobs:
   test:
     runs-on: ubuntu-latest
@@ -23,7 +26,7 @@ jobs:
         uses: shivammathur/setup-php@v2
         with:
           php-version: '8.3'
-          extensions: dom, pdo
+          extensions: dom, pdo, pdo_sqlite
           coverage: none
 
       - name: Validate Composer metadata
@@ -37,3 +40,16 @@ jobs:
 
       - name: Run static analysis
         run: composer analyse
+
+      - name: Run code style
+        run: composer lint
+
+      - name: Generate SBOM
+        run: composer sbom
+
+      - name: Upload SBOM
+        uses: actions/upload-artifact@v4
+        with:
+          name: doogle-sbom
+          path: build/sbom.cdx.json
+          if-no-files-found: error

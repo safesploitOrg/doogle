@@ -21,10 +21,22 @@
     },
     "require-dev": {
         "phpunit/phpunit": "^11.0",
-        "phpstan/phpstan": "^2.2"
+        "phpstan/phpstan": "^2.2",
+        "squizlabs/php_codesniffer": "^3.10",
+        "cyclonedx/cyclonedx-php-composer": "^4.0"
     },
     "scripts": {
         "analyse": "phpstan analyse ./app ./assets ./classes",
+        "lint": "phpcs --standard=PSR12 app tests",
+        "sbom": [
+            "@php -r \"is_dir('build') || mkdir('build', 0777, true);\"",
+            "@composer CycloneDX:make-sbom --output-format=JSON --output-file=build/sbom.cdx.json"
+        ],
         "test": "phpunit --configuration phpunit.xml"
+    },
+    "config": {
+        "allow-plugins": {
+            "cyclonedx/cyclonedx-php-composer": true
+        }
     }
 }

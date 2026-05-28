@@ -149,7 +149,11 @@ final class CrawlerSecurityPolicy
      */
     private static function schemesFromEnvironment(array $environment): array
     {
-        $schemes = (string) self::value($environment, 'CRAWLER_ALLOWED_SCHEMES', implode(',', self::DEFAULT_ALLOWED_SCHEMES));
+        $schemes = (string) self::value(
+            $environment,
+            'CRAWLER_ALLOWED_SCHEMES',
+            implode(',', self::DEFAULT_ALLOWED_SCHEMES)
+        );
 
         return array_values(array_filter(
             array_map(static fn (string $scheme): string => trim($scheme), explode(',', $schemes)),

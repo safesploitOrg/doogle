@@ -25,6 +25,7 @@ Written primarily in OOP style PHP with the intent of better understanding OOP a
 
 # Table of Contents 
 
+- [Modernisation Changes](#modernisation-changes)
 - [Setup and Usage](#setup-and-usage)
   - [Docker](#docker)
   - [Server Setup](#server-setup)
@@ -44,6 +45,32 @@ Written primarily in OOP style PHP with the intent of better understanding OOP a
   - [Pagination System](#pagination-system)
   - [doogleBot Crawl Form](#dooglebot-crawl-form)
 - [Preview Video](#preview-video)
+
+# Modernisation Changes
+
+This refactored branch is being modernised incrementally rather than rewritten.
+
+Completed changes so far:
+
+- Composer, PSR-4 autoloading, PHPUnit, and PHPStan are in place.
+- Search utility logic has been extracted into small classes for URL normalisation, pagination, and field formatting.
+- Database configuration now supports `.env` through `Doogle\Database\ConnectionFactory`, while keeping `config.php` compatibility.
+- Repository classes now own site/image SQL access and click/broken-image updates.
+- Search services and DTOs now handle search business logic before legacy providers render HTML.
+- Crawler hardening now blocks unsafe/private URLs by default and enforces depth, page, timeout, and response-size limits.
+- Docker files live in `docker/` for local app, MySQL, and phpMyAdmin testing.
+- GitHub Actions CI runs Composer validation, dependency install, PHPUnit, PHPStan, PHPCS, and CycloneDX SBOM generation.
+
+Local quality checks:
+
+    composer validate --strict
+    composer install --no-interaction --prefer-dist
+    composer test
+    composer analyse
+    composer lint
+    composer sbom
+
+The generated SBOM is written to `build/sbom.cdx.json`.
 
 # Setup and Usage
 
