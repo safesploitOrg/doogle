@@ -61,6 +61,7 @@ Completed changes so far:
 - Docker files live in `docker/` for local app, MySQL, and phpMyAdmin testing.
 - GitHub Actions CI runs Composer validation, dependency install, PHPUnit, PHPStan, PHPCS, and CycloneDX SBOM generation.
 - Search ranking now uses field relevance with a bounded click boost; MySQL full-text indexes are included for site and image search.
+- Browser-accessible files now live under `public/`, and Docker serves `/var/www/html/public` as the web root.
 
 Local quality checks:
 
@@ -132,7 +133,7 @@ The SQL user 'doogle' must have SELECT, INSERT and UPDATE privileges:
     
   - INSERT is used for crawling
   - SELECT is required for the search engine to return queries
-  - UPDATE is required to amend the clicks and broken results (see ./ajax/) 
+  - UPDATE is required to amend the clicks and broken results (see ./public/ajax/)
 
 ## Connecting PHP to MySQL Server
 
@@ -222,7 +223,7 @@ To make image searches more informative, the 'alt' tag is part of the search ter
 ### Loading Images with JavaScript
 In the 'images' table, there is a row 'broken' which tracks images which return an error.
 
-Because images are already loaded with a pure server-side solution, AJAX must be leveraged, loading images dynamically. Which is shown in ./assets/js/script.js
+Because images are already loaded with a pure server-side solution, AJAX must be leveraged, loading images dynamically. Which is shown in ./public/assets/js/script.js
 
 
 <img width="319" alt="script js-loadImage-broken" src="https://user-images.githubusercontent.com/10171446/165471191-6119b5cf-dc77-49a4-b84d-12276232813a.png">

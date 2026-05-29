@@ -1,7 +1,7 @@
 # Doogle Docker Development
 
-This Docker stack runs the current legacy entrypoints from the repository root.
-It does not move the application into `public/` yet.
+This Docker stack serves the application from `public/` while mounting the full
+repository at `/var/www/html` for Composer, tests, and internal code.
 
 ## Build
 
@@ -40,17 +40,6 @@ DOOGLE_APP_PORT=8080 DOOGLE_DB_PASSWORD=change-me ./docker/up.sh
 
 ---
 
-## Crawl Websites
-
-```sh
-./docker/shell.sh
-```
-
-Or,
-
-- Doogle: http://localhost:8000/crawl.php
-
-
 ## Test
 
 ```sh
@@ -60,7 +49,7 @@ Or,
 ## Stop
 
 ```sh
-./docker/down.shxl
+./docker/down.sh
 ```
 
 To remove the MySQL volume and re-run schema bootstrap:

@@ -1,9 +1,9 @@
 <?php
-require_once __DIR__ . '/vendor/autoload.php';
+require_once __DIR__ . '/../vendor/autoload.php';
 
-include("config.php");
-include("classes/SiteResultsProvider.php");
-include("classes/ImageResultsProvider.php");
+include(__DIR__ . "/../config.php");
+include(__DIR__ . "/../classes/SiteResultsProvider.php");
+include(__DIR__ . "/../classes/ImageResultsProvider.php");
 
 if(isset($_GET['term']))
 	$term = $_GET['term'];

@@ -26,7 +26,7 @@
         "cyclonedx/cyclonedx-php-composer": "^4.0"
     },
     "scripts": {
-        "analyse": "phpstan analyse ./app ./assets ./classes",
+        "analyse": "phpstan analyse ./app ./classes ./public",
         "lint": "phpcs --standard=PSR12 app tests",
         "sbom": [
             "@php -r \"is_dir('build') || mkdir('build', 0777, true);\"",
