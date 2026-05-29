@@ -26,8 +26,8 @@
         "cyclonedx/cyclonedx-php-composer": "^4.0"
     },
     "scripts": {
-        "analyse": "phpstan analyse ./app ./classes ./public",
-        "lint": "phpcs --standard=PSR12 app tests",
+        "analyse": "phpstan analyse ./app ./bin ./classes ./public",
+        "lint": "phpcs --standard=PSR12 app bin tests",
         "sbom": [
             "@php -r \"is_dir('build') || mkdir('build', 0777, true);\"",
             "@composer CycloneDX:make-sbom --output-format=JSON --output-file=build/sbom.cdx.json"

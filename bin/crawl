@@ -1,0 +1,32 @@
+#!/usr/bin/env php
+<?php
+
+declare(strict_types=1);
+
+use Doogle\Crawl\CliCrawlCommand;
+use Doogle\Crawl\CrawlService;
+use Doogle\Crawl\UrlValidator;
+use Doogle\Database\ConnectionFactory;
+use Doogle\Security\CrawlerSecurityPolicy;
+
+require_once dirname(__DIR__) . '/vendor/autoload.php';
+
+if (PHP_SAPI !== 'cli') {
+    fwrite(STDERR, "This command can only be run from the CLI.\n");
+    exit(CliCrawlCommand::EXIT_FAILURE);
+}
+
+$projectRoot = dirname(__DIR__);
+$connectionFactory = ConnectionFactory::fromProjectRoot($projectRoot);
+$policy = CrawlerSecurityPolicy::fromEnvironment();
+
+$command = new CliCrawlCommand(
+    $policy,
+    static function () use ($connectionFactory, $policy): CrawlService {
+        $pdo = $connectionFactory->create();
+
+        return new CrawlService($pdo, $policy, new UrlValidator($policy));
+    }
+);
+
+exit($command->run($argv));

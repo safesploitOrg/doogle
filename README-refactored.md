@@ -62,6 +62,18 @@ Completed changes so far:
 - GitHub Actions CI runs Composer validation, dependency install, PHPUnit, PHPStan, PHPCS, and CycloneDX SBOM generation.
 - Search ranking now uses field relevance with a bounded click boost; MySQL full-text indexes are included for site and image search.
 - Browser-accessible files now live under `public/`, and Docker serves `/var/www/html/public` as the web root.
+- The auth layer now exists in `app/Auth/` with password verification, user lookup, and session identity handling.
+
+ARCHITECTURE2 phases:
+
+- Phase A: Public Web Root - complete.
+- Phase B: Auth Layer - complete.
+- Phase C: Login / Logout - complete.
+- Phase D: Authenticated Web Crawl - complete.
+- Phase E: CLI Crawl - complete.
+- Phase F: Legacy Removal.
+- Phase G: Crawl Jobs / History.
+- Phase H: Production Hardening.
 
 Local quality checks:
 
@@ -73,6 +85,32 @@ Local quality checks:
     composer sbom
 
 The generated SBOM is written to `build/sbom.cdx.json`.
+
+Admin crawling now requires an admin user. Create the first admin manually with
+a `password_hash()` value, or use phpMyAdmin to insert a user into `users` with
+`role = admin`. Plaintext passwords must not be stored.
+
+You can create an admin from the CLI:
+
+    DOOGLE_ADMIN_PASSWORD='change-this-password' php bin/create-admin admin admin@example.local
+
+For Docker, set `DOOGLE_ADMIN_PASSWORD` when starting the stack. `docker/up.sh`
+will create the initial admin if it does not already exist:
+
+    DOOGLE_ADMIN_PASSWORD='change-this-password' ./docker/up.sh
+
+You can also create or confirm an admin in a running stack:
+
+    DOOGLE_ADMIN_PASSWORD='change-this-password' ./docker/create-admin.sh admin admin@example.local
+
+CLI crawling is available without a browser session, but it still enforces the
+same crawler security policy:
+
+    php bin/crawl https://example.com
+
+For Docker:
+
+    ./docker/crawl.sh https://example.com
 
 # Setup and Usage
 
