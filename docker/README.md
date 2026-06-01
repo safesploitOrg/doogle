@@ -72,6 +72,11 @@ Run a trusted local/container crawl without a browser session:
 The command still uses the same crawler URL validation and private-network
 blocking policy as the authenticated web crawl form.
 
+The authenticated crawl page records crawl history in `crawl_jobs`. Existing
+Docker volumes created before that table existed need either the
+`database/migrations/003_create_crawl_jobs.sql` migration applied or a local
+database reset.
+
 ## Stop
 
 ```sh

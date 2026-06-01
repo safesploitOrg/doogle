@@ -5,6 +5,9 @@ declare(strict_types=1);
 namespace Doogle\Crawl;
 
 use Closure;
+use DOMDocument;
+use DOMElement;
+use DOMNodeList;
 use Doogle\Security\CrawlerSecurityPolicy;
 use PDO;
 use Throwable;
@@ -14,13 +17,32 @@ final class CrawlService
     /** @var Closure(CrawlRequest): string */
     private Closure $runner;
 
+    /** @var Closure(string): string */
+    private Closure $pageFetcher;
+
+    /** @var array<string, true> */
+    private array $alreadyCrawled = [];
+
+    /** @var array<string, true> */
+    private array $alreadyParsed = [];
+
+    /** @var list<string> */
+    private array $alreadyFoundImages = [];
+
+    /** @var list<string> */
+    private array $output = [];
+
+    private int $pagesCrawled = 0;
+
     public function __construct(
         private readonly PDO $pdo,
         private readonly CrawlerSecurityPolicy $policy,
         private readonly UrlValidator $validator,
         ?callable $runner = null,
+        ?callable $pageFetcher = null,
     ) {
-        $this->runner = Closure::fromCallable($runner ?? $this->runLegacyCrawler(...));
+        $this->runner = Closure::fromCallable($runner ?? $this->runCrawler(...));
+        $this->pageFetcher = Closure::fromCallable($pageFetcher ?? $this->fetchPage(...));
     }
 
     public static function fromDefaults(PDO $pdo): self
@@ -58,21 +80,299 @@ final class CrawlService
         );
     }
 
-    private function runLegacyCrawler(CrawlRequest $request): string
+    private function runCrawler(CrawlRequest $request): string
     {
-        require_once dirname(__DIR__, 2) . '/classes/Crawler.php';
+        $this->alreadyCrawled = [];
+        $this->alreadyParsed = [];
+        $this->alreadyFoundImages = [];
+        $this->output = [];
+        $this->pagesCrawled = 0;
 
-        ob_start();
+        $this->followLinks($request->startUrl);
 
-        try {
-            $crawler = new \Crawler($this->pdo, $this->policy, $this->validator);
-            $crawler->followLinks($request->startUrl);
+        return implode('', $this->output);
+    }
 
-            return (string) ob_get_clean();
-        } catch (Throwable $throwable) {
-            $output = (string) ob_get_clean();
+    private function followLinks(string $url): void
+    {
+        $queue = [[$url, 0]];
 
-            throw new \RuntimeException($throwable->getMessage() . ($output !== '' ? "\n" . $output : ''));
+        while ($queue !== []) {
+            if (!$this->policy->allowsMorePages($this->pagesCrawled)) {
+                $this->record('SKIPPED: maximum pages per job reached');
+                break;
+            }
+
+            $current = array_shift($queue);
+            $currentUrl = (string) $current[0];
+            $depth = (int) $current[1];
+
+            if (isset($this->alreadyParsed[$currentUrl])) {
+                continue;
+            }
+
+            $this->alreadyParsed[$currentUrl] = true;
+            $reason = $this->validator->rejectionReason($currentUrl, $depth);
+
+            if ($reason !== null) {
+                $this->record("SKIPPED: {$currentUrl} ({$reason})");
+                continue;
+            }
+
+            $links = $this->loadDocument($currentUrl)->getElementsByTagName('a');
+
+            foreach ($links as $link) {
+                if (!$link instanceof DOMElement) {
+                    continue;
+                }
+
+                $href = $link->getAttribute('href');
+
+                if ($this->shouldSkipHref($href)) {
+                    continue;
+                }
+
+                $href = $this->createLink($href, $currentUrl);
+                $nextDepth = $depth + 1;
+                $reason = $this->validator->rejectionReason($href, $nextDepth);
+
+                if ($reason !== null) {
+                    $this->record("SKIPPED: {$href} ({$reason})");
+                    continue;
+                }
+
+                if (!isset($this->alreadyCrawled[$href])) {
+                    if (!$this->policy->allowsMorePages($this->pagesCrawled)) {
+                        $this->record('SKIPPED: maximum pages per job reached');
+                        break;
+                    }
+
+                    $this->alreadyCrawled[$href] = true;
+                    $this->getDetails($href, $nextDepth);
+
+                    if ($nextDepth < $this->policy->maxDepth() && !isset($this->alreadyParsed[$href])) {
+                        $queue[] = [$href, $nextDepth];
+                    }
+                }
+
+                $this->record($href);
+            }
         }
+    }
+
+    private function getDetails(string $url, int $depth = 0): bool
+    {
+        $reason = $this->validator->rejectionReason($url, $depth);
+
+        if ($reason !== null) {
+            $this->record("SKIPPED: {$url} ({$reason})");
+            return false;
+        }
+
+        if (!$this->policy->allowsMorePages($this->pagesCrawled)) {
+            $this->record('SKIPPED: maximum pages per job reached');
+            return false;
+        }
+
+        $this->pagesCrawled++;
+        $document = $this->loadDocument($url);
+        $title = $this->firstNodeValue($document->getElementsByTagName('title'));
+
+        if ($title === '') {
+            return false;
+        }
+
+        $description = '';
+        $keywords = '';
+        $metas = $document->getElementsByTagName('meta');
+
+        foreach ($metas as $meta) {
+            if (!$meta instanceof DOMElement) {
+                continue;
+            }
+
+            if ($meta->getAttribute('name') === 'description') {
+                $description = $meta->getAttribute('content');
+            }
+
+            if ($meta->getAttribute('name') === 'keywords') {
+                $keywords = $meta->getAttribute('content');
+            }
+        }
+
+        $description = str_replace("\n", '', $description);
+        $keywords = str_replace("\n", '', $keywords);
+
+        if ($this->linkExists($url)) {
+            $this->record("{$url} already exists");
+        } elseif ($this->insertLink($url, $title, $description, $keywords)) {
+            $this->record("SUCCESS: {$url}");
+        } else {
+            $this->record("ERROR: Failed to insert {$url}");
+        }
+
+        $imageOutput = $this->indexImages($document, $url, $depth);
+        $this->record(
+            "<b>URL:</b> {$url}, <b>Title:</b> {$title}, "
+            . "<b>Description:</b> {$description}, <b>keywords:</b> {$keywords}"
+        );
+
+        if ($imageOutput !== '') {
+            $this->record($imageOutput);
+        }
+
+        return true;
+    }
+
+    private function indexImages(DOMDocument $document, string $url, int $depth): string
+    {
+        $imageOutput = '';
+        $images = $document->getElementsByTagName('img');
+
+        foreach ($images as $image) {
+            if (!$image instanceof DOMElement) {
+                continue;
+            }
+
+            $src = $image->getAttribute('src');
+            $alt = $image->getAttribute('alt');
+            $imageTitle = $image->getAttribute('title');
+
+            if ($imageTitle === '' && $alt === '') {
+                continue;
+            }
+
+            $src = $this->createLink($src, $url);
+            $imageReason = $this->validator->rejectionReason($src, $depth);
+
+            if ($imageReason !== null) {
+                $this->record("SKIPPED: {$src} ({$imageReason})");
+                continue;
+            }
+
+            if (!in_array($src, $this->alreadyFoundImages, true)) {
+                $this->alreadyFoundImages[] = $src;
+
+                if ($this->imageExists($src)) {
+                    $this->record("{$src} already exists");
+                } elseif ($this->insertImage($url, $src, $alt, $imageTitle)) {
+                    $this->record("SUCCESS: {$src}");
+                } else {
+                    $this->record("ERROR: Failed to insert {$src}");
+                }
+            }
+
+            $imageOutput = "<b>src:</b> <a href={$src}>{$src}</a>, "
+                . "<b>alt:</b> {$alt}, <b>title:</b> {$imageTitle}, <b>url:</b> {$url}";
+        }
+
+        return $imageOutput;
+    }
+
+    private function loadDocument(string $url): DOMDocument
+    {
+        $document = new DOMDocument('1.0', 'utf-8');
+        $html = '<?xml encoding="UTF-8">' . ($this->pageFetcher)($url);
+
+        @$document->loadHTML($html);
+
+        return $document;
+    }
+
+    private function fetchPage(string $url): string
+    {
+        $context = stream_context_create([
+            'http' => [
+                'method' => 'GET',
+                'header' => 'User-Agent: ' . $this->policy->userAgent() . "\r\n",
+                'timeout' => $this->policy->timeoutSeconds(),
+                'ignore_errors' => true,
+                'follow_location' => 0,
+                'max_redirects' => 0,
+            ],
+        ]);
+
+        $contents = @file_get_contents($url, false, $context, 0, $this->policy->maxResponseBytes());
+
+        return is_string($contents) ? $contents : '';
+    }
+
+    private function linkExists(string $url): bool
+    {
+        $statement = $this->pdo->prepare('SELECT 1 FROM sites WHERE url = :url LIMIT 1');
+        $statement->bindValue(':url', $url);
+        $statement->execute();
+
+        return $statement->fetchColumn() !== false;
+    }
+
+    private function imageExists(string $src): bool
+    {
+        $statement = $this->pdo->prepare('SELECT 1 FROM images WHERE imageUrl = :src LIMIT 1');
+        $statement->bindValue(':src', $src);
+        $statement->execute();
+
+        return $statement->fetchColumn() !== false;
+    }
+
+    private function insertLink(string $url, string $title, string $description, string $keywords): bool
+    {
+        $statement = $this->pdo->prepare(
+            'INSERT INTO sites(url, title, description, keywords)
+             VALUES(:url, :title, :description, :keywords)'
+        );
+
+        return $statement->execute([
+            ':url' => $url,
+            ':title' => $title,
+            ':description' => $description,
+            ':keywords' => $keywords,
+        ]);
+    }
+
+    private function insertImage(string $url, string $src, string $alt, string $title): bool
+    {
+        $statement = $this->pdo->prepare(
+            'INSERT INTO images(siteUrl, imageUrl, alt, title)
+             VALUES(:siteUrl, :imageUrl, :alt, :title)'
+        );
+
+        return $statement->execute([
+            ':siteUrl' => $url,
+            ':imageUrl' => $src,
+            ':alt' => $alt,
+            ':title' => $title,
+        ]);
+    }
+
+    private function createLink(string $src, string $url): string
+    {
+        return (new UrlNormalizer())->normalize($src, $url);
+    }
+
+    private function shouldSkipHref(string $href): bool
+    {
+        $href = trim($href);
+
+        return $href === ''
+            || strpos($href, '#') !== false
+            || stripos($href, 'javascript:') === 0;
+    }
+
+    /**
+     * @param DOMNodeList<\DOMNode> $nodes
+     */
+    private function firstNodeValue(DOMNodeList $nodes): string
+    {
+        if ($nodes->length === 0 || $nodes->item(0) === null) {
+            return '';
+        }
+
+        return str_replace("\n", '', (string) $nodes->item(0)?->nodeValue);
+    }
+
+    private function record(string $line): void
+    {
+        $this->output[] = $line . '<br>';
     }
 }

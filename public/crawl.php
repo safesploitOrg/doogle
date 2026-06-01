@@ -1,6 +1,13 @@
 <?php
 declare(strict_types=1);
 
+use Doogle\Crawl\CrawlRequest;
+use Doogle\Crawl\CrawlService;
+use Doogle\Crawl\UrlValidator;
+use Doogle\Repository\CrawlJobRepository;
+use Doogle\Security\CrawlerSecurityPolicy;
+use Doogle\Security\CsrfToken;
+
 require_once __DIR__ . '/../vendor/autoload.php';
 include(__DIR__ . '/../config.php');
 
@@ -12,12 +19,16 @@ if (!$sessionAuth->isAdmin()) {
 	exit;
 }
 
-$csrf = new \Doogle\Security\CsrfToken($_SESSION);
-$policy = \Doogle\Security\CrawlerSecurityPolicy::fromEnvironment();
-$validator = new \Doogle\Crawl\UrlValidator($policy);
+$currentUser = $sessionAuth->user();
+$csrf = new CsrfToken($_SESSION);
+$policy = CrawlerSecurityPolicy::fromEnvironment();
+$validator = new UrlValidator($policy);
+$crawlJobs = new CrawlJobRepository($con);
 $result = null;
 $error = '';
+$historyError = '';
 $submittedUrl = '';
+$crawlHistory = [];
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 	$submittedUrl = trim((string) ($_POST['url'] ?? ''));
@@ -27,9 +38,32 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 		$error = 'Invalid request token.';
 	} else {
 		$csrf->regenerate();
-		$request = \Doogle\Crawl\CrawlRequest::fromPolicy($submittedUrl, $policy);
-		$result = (new \Doogle\Crawl\CrawlService($con, $policy, $validator))->crawl($request);
+		$jobId = null;
+
+		try {
+			$jobId = $crawlJobs->create($submittedUrl, $currentUser?->id);
+			$crawlJobs->markRunning($jobId);
+		} catch (Throwable $throwable) {
+			$historyError = 'Crawl history unavailable. Run the crawl_jobs migration.';
+		}
+
+		$request = CrawlRequest::fromPolicy($submittedUrl, $policy);
+		$result = (new CrawlService($con, $policy, $validator))->crawl($request);
+
+		if ($jobId !== null) {
+			try {
+				$crawlJobs->markFromResult($jobId, $result);
+			} catch (Throwable $throwable) {
+				$historyError = 'Crawl history could not be updated.';
+			}
+		}
 	}
+}
+
+try {
+	$crawlHistory = $crawlJobs->recent(10);
+} catch (Throwable $throwable) {
+	$historyError = 'Crawl history unavailable. Run the crawl_jobs migration.';
 }
 
 $csrfToken = $csrf->token();
@@ -42,6 +76,11 @@ function h(string $value): string
 function crawlOutputText(string $output): string
 {
 	return trim(strip_tags(str_ireplace('<br>', "\n", $output)));
+}
+
+function statusLabel(string $status): string
+{
+	return ucfirst($status);
 }
 ?>
 
@@ -77,6 +116,10 @@ function crawlOutputText(string $output): string
 			<p class="resultsCount"><?php echo h($error); ?></p>
 		<?php endif; ?>
 
+		<?php if ($historyError !== ''): ?>
+			<p class="resultsCount"><?php echo h($historyError); ?></p>
+		<?php endif; ?>
+
 		<?php if ($result !== null): ?>
 			<p class="resultsCount">
 				<?php echo $result->successful ? 'Crawl completed.' : 'Crawl failed.'; ?>
@@ -104,6 +147,30 @@ function crawlOutputText(string $output): string
 				</div>
 			<?php endif; ?>
 		<?php endif; ?>
+
+		<div class="siteResults">
+			<h3>Crawl history</h3>
+
+			<?php if ($crawlHistory === []): ?>
+				<p>No crawls recorded yet.</p>
+			<?php else: ?>
+				<?php foreach ($crawlHistory as $job): ?>
+					<div class="resultContainer">
+						<h3 class="title"><?php echo h(statusLabel($job->status)); ?>: <?php echo h($job->startUrl); ?></h3>
+						<span class="description">
+							Pages discovered: <?php echo h((string) $job->pagesDiscovered); ?>,
+							pages indexed: <?php echo h((string) $job->pagesIndexed); ?>,
+							images indexed: <?php echo h((string) $job->imagesIndexed); ?>,
+							URLs rejected: <?php echo h((string) $job->urlsRejected); ?>
+						</span>
+						<span class="url"><?php echo h($job->updatedAt); ?></span>
+						<?php if ($job->errorMessage !== null && $job->errorMessage !== ''): ?>
+							<span class="description"><?php echo h($job->errorMessage); ?></span>
+						<?php endif; ?>
+					</div>
+				<?php endforeach; ?>
+			<?php endif; ?>
+		</div>
 	</div>
 </body>
 </html>

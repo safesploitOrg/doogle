@@ -1,366 +1,325 @@
-# Doogle
-Doogle is a search engine and web crawler which can search indexed websites and images, and then use keywords to be searched later. 
+# Doogle Refactored
 
-Written primarily in OOP style PHP with the intent of better understanding OOP and how web crawlers work.
+Doogle is a PHP/MySQL search engine and crawler. This branch modernises the
+original application incrementally rather than rewriting it.
 
-<p align="center">
-  <img width="527" alt="DoogleHomepage-Preview" src="https://user-images.githubusercontent.com/10171446/165316199-b0fe279c-cb11-4a36-84b8-53a514ac488a.png">
-</p>
+The current branch has two supported crawl paths:
 
-# Features
+- authenticated browser crawl at `/crawl.php`
+- trusted CLI crawl through `bin/crawl` or `docker/crawl.sh`
 
-- Search sites
-   *    Displays title, URL and description
-- Search images
-    *   Hover over images to preview description (alt tag)
-    *   Masonry layout for searched images
-    *   Image preview using Fancybox
-    *   Image search page responds dynamically
-- Clean homepage
-- Filters broken image results
-- Organises search results by clicks/visits
-- Pagination system at the bottom of the search page
-- Shows 'results found' for search term
-- Supports non-latin characters (UTF-8)
+Public search remains unauthenticated.
 
-# Table of Contents 
+## Current Status
 
-- [Modernisation Changes](#modernisation-changes)
-- [Setup and Usage](#setup-and-usage)
-  - [Docker](#docker)
-  - [Server Setup](#server-setup)
-  - [PHP Dependencies](#php-dependencies)
-  - [Connecting PHP to MySQL Server](#connecting-php-to-mysql-server)
-  - [Crawling Websites to Populate Images and Sites tables](#crawling-websites-to-populate-images-and-sites-tables)
-- [Programming Logic](#programming-logic)
-  - [Pagination](#pagination)
-  - [Image Search](#image-search)
-  - [Site Search - Trimming Results](#site-search---trimming-results)
-  - [Telemetry](#telemetry)
-  - [User-Agent](#user-agent)
-- [Preview Images](#preview-images)
-  - [Doogle Homepage](#doogle-homepage)
-  - [Doogle Search - Sites](#doogle-search---sites)
-  - [Doogle Search - Images](#doogle-search---images)
-  - [Pagination System](#pagination-system)
-  - [doogleBot Crawl Form](#dooglebot-crawl-form)
-- [Preview Video](#preview-video)
+Completed from `ARCHITECTURE2.md`:
 
-# Modernisation Changes
+- Phase A: Public Web Root
+- Phase B: Auth Layer
+- Phase C: Login / Logout
+- Phase D: Authenticated Web Crawl
+- Phase E: CLI Crawl
+- Phase F: Legacy Removal
+- Phase G: Crawl Jobs / History
 
-This refactored branch is being modernised incrementally rather than rewritten.
+Remaining:
 
-Completed changes so far:
+- Phase H: Production Hardening
 
-- Composer, PSR-4 autoloading, PHPUnit, and PHPStan are in place.
-- Search utility logic has been extracted into small classes for URL normalisation, pagination, and field formatting.
-- Database configuration now supports `.env` through `Doogle\Database\ConnectionFactory`, while keeping `config.php` compatibility.
-- Repository classes now own site/image SQL access and click/broken-image updates.
-- Search services and DTOs now handle search business logic before legacy providers render HTML.
-- Crawler hardening now blocks unsafe/private URLs by default and enforces depth, page, timeout, and response-size limits.
-- Docker files live in `docker/` for local app, MySQL, and phpMyAdmin testing.
-- GitHub Actions CI runs Composer validation, dependency install, PHPUnit, PHPStan, PHPCS, and CycloneDX SBOM generation.
-- Search ranking now uses field relevance with a bounded click boost; MySQL full-text indexes are included for site and image search.
-- Browser-accessible files now live under `public/`, and Docker serves `/var/www/html/public` as the web root.
-- The auth layer now exists in `app/Auth/` with password verification, user lookup, and session identity handling.
+Key changes now in place:
 
-ARCHITECTURE2 phases:
+- Composer, PSR-4 autoloading, PHPUnit, PHPStan, PHPCS, and SBOM generation.
+- Runtime web files live under `public/`; Docker serves `/var/www/html/public`.
+- `app/` contains auth, crawl, database, repository, search, and security classes.
+- Legacy root `crawl.php`, root `crawl-manual.php`, and `classes/` have been removed.
+- Search uses repositories, services, DTOs, full-text indexes, relevance ranking, and bounded click boost.
+- Browser crawling requires an admin login and CSRF token.
+- CLI crawling does not require a browser session, but still enforces crawler safety policy.
+- Crawl jobs are stored in `crawl_jobs` and shown on the authenticated crawl page.
 
-- Phase A: Public Web Root - complete.
-- Phase B: Auth Layer - complete.
-- Phase C: Login / Logout - complete.
-- Phase D: Authenticated Web Crawl - complete.
-- Phase E: CLI Crawl - complete.
-- Phase F: Legacy Removal.
-- Phase G: Crawl Jobs / History.
-- Phase H: Production Hardening.
+## Quick Start With Docker
 
-Local quality checks:
+Docker is the preferred local workflow.
 
-    composer validate --strict
-    composer install --no-interaction --prefer-dist
-    composer test
-    composer analyse
-    composer lint
-    composer sbom
+Start the app and create an initial admin user:
+
+```sh
+DOOGLE_ADMIN_PASSWORD='change-this-password' ./docker/up.sh
+```
+
+Optional admin overrides:
+
+```sh
+DOOGLE_ADMIN_USERNAME=admin \
+DOOGLE_ADMIN_EMAIL=admin@example.local \
+DOOGLE_ADMIN_PASSWORD='change-this-password' \
+./docker/up.sh
+```
+
+Open:
+
+- Doogle search: http://localhost:8000
+- Admin crawl page: http://localhost:8000/crawl.php
+- phpMyAdmin: http://localhost:8081
+
+Default local database details:
+
+- Host from host machine: `localhost:3307`
+- Host from app container: `mysql_db:3306`
+- Database: `doogle`
+- User: `doogle`
+- Password: `doogle`
+- Root password: `root`
+
+Stop Docker:
+
+```sh
+./docker/down.sh
+```
+
+Reset the local Docker database volume and re-run schema bootstrap:
+
+```sh
+./docker/reset-db.sh --force
+```
+
+This deletes local Docker database data.
+
+## Admin Users
+
+Browser crawling requires an admin account.
+
+Create an admin locally:
+
+```sh
+DOOGLE_ADMIN_PASSWORD='change-this-password' php bin/create-admin admin admin@example.local
+```
+
+Or pass the password as the third argument:
+
+```sh
+php bin/create-admin admin admin@example.local change-this-password
+```
+
+Create or confirm an admin in a running Docker stack:
+
+```sh
+DOOGLE_ADMIN_PASSWORD='change-this-password' ./docker/create-admin.sh admin admin@example.local
+```
+
+`docker/up.sh` also creates the initial admin automatically when
+`DOOGLE_ADMIN_PASSWORD` is set.
+
+Do not store plaintext passwords in SQL. The command stores a `password_hash()`
+value.
+
+## Running Search
+
+Public search is available without login:
+
+```text
+http://localhost:8000/
+http://localhost:8000/search.php?term=example&type=sites
+http://localhost:8000/search.php?term=example&type=images
+```
+
+Site search returns 20 results per page. Image search returns 30 results per
+page.
+
+## Crawling: Web UI
+
+Use the web UI when you want an authenticated browser workflow and crawl
+history.
+
+1. Start Docker:
+
+   ```sh
+   DOOGLE_ADMIN_PASSWORD='change-this-password' ./docker/up.sh
+   ```
+
+2. Open http://localhost:8000/login.php.
+
+3. Log in with the admin username/password.
+
+4. Open http://localhost:8000/crawl.php.
+
+5. Submit a URL.
+
+The crawl result and recent crawl history are shown on the same page. Crawl
+history is stored in `crawl_jobs`.
+
+## Crawling: CLI
+
+Use the CLI when you want trusted local/container execution without a browser
+session.
+
+Local CLI:
+
+```sh
+php bin/crawl https://example.com
+```
+
+Docker CLI wrapper:
+
+```sh
+./docker/crawl.sh https://example.com
+```
+
+Exit codes:
+
+- `0`: crawl completed successfully
+- `1`: usage error or crawl failed
+- `2`: URL rejected by validation/security policy
+- `3`: database/configuration failure
+
+CLI crawling still blocks private/reserved networks by default and still uses
+the same crawler limits as the web UI.
+
+## Crawler Safety Settings
+
+Crawler settings can be provided through environment variables:
+
+```env
+CRAWLER_USER_AGENT=doogleBot/1.0
+CRAWLER_MAX_DEPTH=2
+CRAWLER_TIMEOUT_SECONDS=10
+CRAWLER_MAX_PAGES_PER_JOB=100
+CRAWLER_MAX_RESPONSE_BYTES=1048576
+CRAWLER_ALLOW_PRIVATE_NETWORKS=false
+```
+
+By default, private and reserved network targets such as `127.0.0.1`,
+`localhost`, RFC1918 ranges, and link-local ranges are rejected.
+
+## Database And Migrations
+
+Fresh Docker databases are created from `doogle-tables-no-data.sql`.
+
+Existing databases may need migrations:
+
+```text
+database/migrations/001_add_search_fulltext_indexes.sql
+database/migrations/002_update_users_auth_schema.sql
+database/migrations/003_create_crawl_jobs.sql
+```
+
+Apply a migration to the Docker database:
+
+```sh
+docker compose -f docker/compose.yml exec -T mysql_db mysql -uroot -proot doogle < database/migrations/003_create_crawl_jobs.sql
+```
+
+For non-Docker MySQL, apply the same SQL files with your normal MySQL client.
+
+## Local Non-Docker Run
+
+Docker is preferred, but a local PHP/MySQL setup can work.
+
+Minimum expectations:
+
+- PHP `>=8.2`
+- Composer
+- MySQL-compatible database
+- PHP extensions: `pdo`, `pdo_mysql`, `dom`
+- web server document root pointed at `public/`
+
+Install dependencies:
+
+```sh
+composer install
+```
+
+Create `.env` from `.env.example` and set database credentials:
+
+```sh
+cp .env.example .env
+```
+
+Create the schema:
+
+```sh
+mysql -u root -p < doogle-tables-no-data.sql
+```
+
+Create an admin:
+
+```sh
+DOOGLE_ADMIN_PASSWORD='change-this-password' php bin/create-admin admin admin@example.local
+```
+
+Point Apache, nginx, or PHP's local server at `public/`. Example for quick local
+testing:
+
+```sh
+php -S localhost:8000 -t public
+```
+
+The app still expects a configured MySQL-compatible database.
+
+## Development Checks
+
+Run the local quality checks:
+
+```sh
+composer validate --strict
+composer test
+composer analyse
+composer lint
+composer sbom
+```
+
+Run checks in Docker:
+
+```sh
+./docker/test.sh
+```
 
 The generated SBOM is written to `build/sbom.cdx.json`.
 
-Admin crawling now requires an admin user. Create the first admin manually with
-a `password_hash()` value, or use phpMyAdmin to insert a user into `users` with
-`role = admin`. Plaintext passwords must not be stored.
-
-You can create an admin from the CLI:
-
-    DOOGLE_ADMIN_PASSWORD='change-this-password' php bin/create-admin admin admin@example.local
-
-For Docker, set `DOOGLE_ADMIN_PASSWORD` when starting the stack. `docker/up.sh`
-will create the initial admin if it does not already exist:
-
-    DOOGLE_ADMIN_PASSWORD='change-this-password' ./docker/up.sh
-
-You can also create or confirm an admin in a running stack:
-
-    DOOGLE_ADMIN_PASSWORD='change-this-password' ./docker/create-admin.sh admin admin@example.local
-
-CLI crawling is available without a browser session, but it still enforces the
-same crawler security policy:
-
-    php bin/crawl https://example.com
-
-For Docker:
-
-    ./docker/crawl.sh https://example.com
-
-# Setup and Usage
-
-Two methods of setup are discussed.
-- Docker (Easiest)
-- Server Setup
-
-## Docker
-
-Docker configuration files are available at [doogle-docker](https://github.com/safesploit/doogle-docker).
-
-Presuming you already have [Docker](https://www.docker.com/) v3.9 (or greater) installed and configured.
-
-    git clone https://github.com/safesploit/doogle-docker.git
-    cd doogle-docker
-    sh build.sh
-
-<p align="center">
-<img width="857" alt="Screenshot 2023-02-22 at 21 11 33" src="https://user-images.githubusercontent.com/10171446/220760089-71baee5a-19ce-43e6-9cd5-35ce9e143400.png">
-<img width="857" alt="image" src="https://user-images.githubusercontent.com/10171446/220760298-65e0b64e-3724-4e8e-b9ec-a86ba20d58c8.png">
-
-Doogle is now accessible via [localhost:8000](http://localhost:8000). 
-
-For debugging phpMyAdmin has also been included on [localhost:8001](http://localhost:8001).
-
-</p>
-
-## Server Setup
-
-v1.0.0-beta.1 is supported and tested in PHP 7.4, 8.0 and 8.1.
-
-Please refer to [XAMPP](https://www.apachefriends.org/index.html) for the web server, PHP server and MySQL server configuration.
-XAMPP is the simplest method as several servers are required to use Doogle.
-
-[MySQL Setup on XAMPP](https://www.rose-hulman.edu/class/se/csse290-WebProgramming/201520/SupportCode/SQL-setup.html) will use PHPMyAdmin as a GUI method of setting up the database.
-
-Once logged into the database via PHPMyAdmin under the **PHPMyAdmin > SQL** tab, the content of 'doogle-tables-no-data.sql' can be pasted into the field
-
-<img width="960" alt="Image1-PHPMyAdmin" src="https://user-images.githubusercontent.com/10171446/165310962-7ec771d2-50a0-4117-87f8-60373f694e55.png">
-
-## PHP Dependencies
-
-    mysql
-    pdo_mysql
-    
-
-### SQL User Creation
-
-Amend the password _PASSWORD_HERE_ using a strong [random password](https://passwordsgenerator.net/).
-
-    mysql> CREATE USER IF NOT EXISTS 'doogle'@'localhost' IDENTIFIED BY 'PASSWORD_HERE';
-
-### SQL User Permissions
-
-The SQL user 'doogle' must have SELECT, INSERT and UPDATE privileges:
-
-    mysql> GRANT SELECT, INSERT, UPDATE ON `doogle`.* TO 'doogle'@'localhost';
-    
-  - INSERT is used for crawling
-  - SELECT is required for the search engine to return queries
-  - UPDATE is required to amend the clicks and broken results (see ./public/ajax/)
-
-## Connecting PHP to MySQL Server
-
-In the file config.php the following must be entered correctly for your database configuration:
-
-    $dbname = "doogle";
-    $dbhost = "localhost";
-    $dbuser = "doogle";
-    $dbpass = "";
-
-In the file 'doogle-tables-no-data.sql' the database will be created as 'doogle'.
-
-## Crawling Websites to Populate Images and Sites tables
-
-### Form-based crawl
-
-In your browser go to where the file is hosted http://localhost/crawl.php
-
-Paste the URL into the input field and press the Crawl button.
-
-### Manual crawl
-
-At the bottom of crawl-manual.php the variable $startUrl is where to paste the URL of the website to be crawled:
-
-    $startUrl = "https://thehackernews.com/";
-  
-Then in your browser go to where the file is hosted http://localhost/crawl-manual.php
-
-### Explanation
-
-The crawling process will take some time, it will completely depend on the size of the website being crawled. 
-The page will continue to load (without output) until the `crawl.php` script finishes.
-
-Check the tables `images` and `sites` in the database to ensure they are being populated.
-
-<img width="960" alt="Image2-PHPMyAdmin" src="https://user-images.githubusercontent.com/10171446/165312292-c2830b80-365d-4a39-b176-8226bd0d7f65.png">
-
-
-Once the tables are populated visit the Doogle homepage and search!
-See preview images.
-
-# Programming Logic
-
-## Pagination
-
-### Logic of pagination system
-Inside search.php, pagination is implemented  
-
-<img width="261" alt="image demonstrating pagnigation" src="https://user-images.githubusercontent.com/10171446/165146284-cf5362c0-bfe1-4489-b68e-5f7363d243dd.png">
-
-In the example above, currentPage=11. 
-The number of pages to show is always 10.
-
-### Results Per Page
-
-Site search will return 20 results per page and image search will return 30 results per page.
-
-The results per page can be changed inside search.php on lines {83, 88} respectively. As indicated by the $pageSize variables:
-
-<img width="455" alt="Search-resultsPerPage" src="https://user-images.githubusercontent.com/10171446/165478400-f11c1be4-2c83-4559-8ccb-cba4550a64bd.png">
-
-
-### Handling an edge case
-
-An edge case can occur when no more pages are available.
-
-So, for 331 results, **17 pages** will be available. However, without an edge case scenario consider, the UI for the pagination system will allow scrolling through pages which don't exist; which would return an empty result.
-
-To handle an edge case the following logic is implemented in the while-loop:
-
-    if($currentPage + $pagesLeft > $numPages + 1)
-        $currentPage = $numPages + 1 - $pagesLeft;
-
-    while($pagesLeft != 0 && $currentPage <= $numPages) 
-    { ... }
-    
-    
-## Image Search
-
-### Image Captions
-
-To make image searches more informative, the 'alt' tag is part of the search term. As shown in ./classes/ImageResultsProvider.php line 34
-
-<img width="419" alt="ImageResultsProvider-query" src="https://user-images.githubusercontent.com/10171446/165472615-fd149596-3a39-4e48-8308-bd4f1ed16968.png">
-
-
-### Loading Images with JavaScript
-In the 'images' table, there is a row 'broken' which tracks images which return an error.
-
-Because images are already loaded with a pure server-side solution, AJAX must be leveraged, loading images dynamically. Which is shown in ./public/assets/js/script.js
-
-
-<img width="319" alt="script js-loadImage-broken" src="https://user-images.githubusercontent.com/10171446/165471191-6119b5cf-dc77-49a4-b84d-12276232813a.png">
-
-
-
-
-### Masonry
-Image searches are using [Masonry - Cascading grid layout library](https://masonry.desandro.com/).
-
-Masonry allows images a grid layout which is responsive due to jQuery.
-The image below shows an example layout:
-
-<img width="428" alt="Masonry-item-layout" src="https://user-images.githubusercontent.com/10171446/165469864-97c2bec4-2af7-4987-917f-02885d407ba9.png">
-
-
-
-## Site Search - Trimming Results
-
-As shown in the preview images, Doogle when performing a site search will return (title, URL and description) for each result.
-
-However, to make some results easier to read, a trimming process is performed. Inside ./classes/SiteResultsProvider.php the function trimField() is called:
-
-<img width="380" alt="SiteResultsProvider-trim1" src="https://user-images.githubusercontent.com/10171446/165468731-9176be82-c3ed-4bf4-bcbb-bf5dd838398b.png">
-
-<img width="374" alt="SiteResultsProvider-trim2" src="https://user-images.githubusercontent.com/10171446/165468845-5e382320-71ce-4b6a-988b-8d4ddf3f341a.png">
-
-Title's are trimmed at 55 characters and description's are trimmed at 230 characters.
-
-
-## Telemetry
-
-Both the 'images' and 'sites' tables in the database have a row containing 'clicks' for each column.
-
-The 'clicks' field is increased each time a site is visited or image is previewed.
-
-When performing a search, results are ranked by relevance first and then boosted by clicks.
-Title matches are weighted highest, followed by keyword/description/URL matches for site search and alt/image URL matches for image search.
-Click count still influences ordering when results are otherwise similarly relevant.
-
-<img width="443" alt="SiteResultsProvider-getResultsHtml" src="https://user-images.githubusercontent.com/10171446/165467418-37de4f8c-1901-4911-a7c9-33b42806f0bb.png">
-
-
-## User-Agent
-
-Inside ./classes/DomDocumentParser.php the user-agent data used during crawling is located.
-As indicated on line 9:
-
-<img width="481" alt="DomDocumentParser-bot" src="https://user-images.githubusercontent.com/10171446/165465964-2bba0582-2846-44f1-abd1-b51ac316b186.png">
-
-
-# Preview Images
-## Doogle Homepage
-
-<img width="701" alt="Image3-DoogleHomepage-Edge" src="https://user-images.githubusercontent.com/10171446/165313393-fcfdb9fc-1b19-4c8f-ac08-b96ff393ab63.png">
-
-## Doogle Search - Sites
-
-<img width="701" alt="Image4-DoogleSearch-PoC" src="https://user-images.githubusercontent.com/10171446/165313470-02c30d0a-e7e6-4fcf-8c09-6be9e633fc0f.png">
-
-## Doogle Search - Images
-
-<img width="882" alt="Image5-DoogleSearch-PoC-images" src="https://user-images.githubusercontent.com/10171446/165313548-686a79e3-5b1d-4e9e-a3d7-ab7775a9b171.png">
-
-### Image Preview
-
-Image preview is done using Fancybox.
-
-The title, image URL and site URL are available on the bottom left corner.
-
-<img width="883" alt="Image9-DoogleSearch-imagePreview" src="https://user-images.githubusercontent.com/10171446/165315386-8bc4a25e-0a9f-4622-82b8-d733bc343a3b.png">
-
-
-
-## Pagination System
-
-Naturally, certain search terms may return many results like 'bbc'.
-
-To which Doogle only displays **20 sites** per page.
-At the bottom of the page, we can view the next 10 pages.
-
-### Results Shown
-
-<img width="883" alt="Image6-DoogleSearch-pagination-ResultsShown" src="https://user-images.githubusercontent.com/10171446/165314211-5daf2903-5ecc-44ad-942a-2270a361dec5.png">
-
-### Bottom of Page
-
-<img width="883" alt="Image7-DoogleSearch-pagination-Bottom" src="https://user-images.githubusercontent.com/10171446/165314516-d00bf38a-6fef-467c-9182-88d0d6ce07d2.png">
-
-### Bottom of Page 13
-
-<img width="883" alt="Image8-DoogleSearch-pagination-scrollingThrough" src="https://user-images.githubusercontent.com/10171446/165314716-08834b0c-4ba0-4e90-b466-58a57e91bf69.png">
-
-## doogleBot Crawl Form
-
-An HTML form to submit a URL for crawling
-
-<img width="581" alt="Image10-doogleBot-Crawler-formpng" src="https://user-images.githubusercontent.com/10171446/165463270-d36f7b78-379c-46da-b859-f5dde9304668.png">
-
-# Preview Video
-
-[Doogle Search demo - YouTube](https://youtu.be/clDt4Sg7ako)
+## Repository Layout
+
+Important directories:
+
+```text
+app/                  Application classes
+bin/                  CLI commands
+database/migrations/  Incremental SQL migrations
+docker/               Local Docker runtime
+public/               Browser document root
+tests/                PHPUnit tests
+```
+
+Important commands:
+
+```text
+bin/create-admin      Create or confirm an admin user
+bin/crawl             Run a trusted CLI crawl
+docker/up.sh          Start Docker stack
+docker/down.sh        Stop Docker stack
+docker/crawl.sh       Run CLI crawl inside Docker app container
+docker/test.sh        Run Composer checks inside Docker
+```
+
+## Notes For Existing Data
+
+If you already have an older Docker volume or database:
+
+- run the migrations above, or
+- reset the local Docker database with `./docker/reset-db.sh --force`.
+
+Resetting the Docker database deletes local indexed sites, images, users, and
+crawl history.
+
+## Security Defaults
+
+- Browser crawl requires an authenticated admin.
+- Browser crawl POST requires CSRF validation.
+- CLI crawl is trusted local/container execution, not public HTTP access.
+- Private/reserved network crawling is blocked by default.
+- Passwords are hashed with `password_hash()`.
+- Session IDs are regenerated on login.
+- Internal code is outside the web document root.
+
+Production hardening is still Phase H. Before production use, review HTTPS,
+secure session cookies, rate limiting, logging, non-root container execution,
+and security scanning.

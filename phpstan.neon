@@ -2,5 +2,3 @@ parameters:
     level: 0
     parallel:
         maximumNumberOfProcesses: 0
-    scanFiles:
-        - crawl.php

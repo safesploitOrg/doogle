@@ -29,6 +29,42 @@ final class CrawlServiceTest extends TestCase
         $this->pdo = new PDO('sqlite::memory:');
     }
 
+    public function testDefaultCrawlerIndexesLinkedPagesAndImagesWithoutExternalHttp(): void
+    {
+        $this->createCrawlerTables();
+        $policy = new CrawlerSecurityPolicy(allowPrivateNetworks: true);
+        $validator = new UrlValidator(
+            $policy,
+            new PrivateNetworkBlocker(static fn (string $host): array => [])
+        );
+        $pages = [
+            'https://example.com/' => '<html><body><a href="/page">Page</a></body></html>',
+            'https://example.com/page' => '<html><head>'
+                . '<title>Example Page</title>'
+                . '<meta name="description" content="Example description">'
+                . '<meta name="keywords" content="example, page">'
+                . '</head><body><img src="/image.png" alt="Example image"></body></html>',
+        ];
+
+        $service = new CrawlService(
+            $this->pdo,
+            $policy,
+            $validator,
+            null,
+            static fn (string $url): string => $pages[$url] ?? ''
+        );
+
+        $result = $service->crawl(new CrawlRequest('https://example.com/', 2, 100, 10, 1024));
+
+        self::assertTrue($result->successful);
+        self::assertSame(1, $result->pagesIndexed);
+        self::assertSame(1, $result->imagesIndexed);
+        self::assertSame(1, (int) $this->pdo->query('SELECT COUNT(*) FROM sites')->fetchColumn());
+        self::assertSame(1, (int) $this->pdo->query('SELECT COUNT(*) FROM images')->fetchColumn());
+        self::assertStringContainsString('<b>URL:</b> https://example.com/page', $result->output);
+        self::assertStringContainsString('<b>src:</b>', $result->output);
+    }
+
     public function testRejectsUnsafeStartUrlBeforeRunningCrawler(): void
     {
         $ran = false;
@@ -90,5 +126,30 @@ final class CrawlServiceTest extends TestCase
 
         self::assertFalse($result->successful);
         self::assertSame(['crawl failed'], $result->errors);
+    }
+
+    private function createCrawlerTables(): void
+    {
+        $this->pdo->exec(
+            'CREATE TABLE sites (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                url VARCHAR(512) NOT NULL,
+                title VARCHAR(512) NOT NULL,
+                description VARCHAR(512) NOT NULL,
+                keywords VARCHAR(512) NOT NULL,
+                clicks INTEGER NOT NULL DEFAULT 0
+            )'
+        );
+        $this->pdo->exec(
+            'CREATE TABLE images (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                siteUrl VARCHAR(512) NOT NULL,
+                imageUrl VARCHAR(512) NOT NULL,
+                alt VARCHAR(512) NOT NULL,
+                title VARCHAR(512) NOT NULL,
+                clicks INTEGER NOT NULL DEFAULT 0,
+                broken INTEGER NOT NULL DEFAULT 0
+            )'
+        );
     }
 }
