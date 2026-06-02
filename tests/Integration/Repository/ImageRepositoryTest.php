@@ -77,6 +77,18 @@ final class ImageRepositoryTest extends TestCase
         self::assertSame('https://example.com/alt.png', $results[1]['imageUrl']);
     }
 
+    public function testSearchCapsClickBoostSoClicksCannotDominateStrongerRelevance(): void
+    {
+        $this->insertImage('https://example.com/site', 'https://example.com/exact.png', '', 'linux', 0, 0);
+        $this->insertImage('https://example.com/site', 'https://example.com/clicked.png', 'linux', 'Clicked', 10000, 0);
+
+        $results = $this->repository->search('linux', 0, 30);
+
+        self::assertSame('https://example.com/exact.png', $results[0]['imageUrl']);
+        self::assertSame('https://example.com/clicked.png', $results[1]['imageUrl']);
+        self::assertGreaterThan((float) $results[1]['rankingScore'], (float) $results[0]['rankingScore']);
+    }
+
     public function testSearchCanMatchImageUrl(): void
     {
         $this->insertImage(

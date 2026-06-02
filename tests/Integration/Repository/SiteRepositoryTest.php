@@ -75,6 +75,18 @@ final class SiteRepositoryTest extends TestCase
         self::assertSame('https://example.com/description', $results[1]['url']);
     }
 
+    public function testSearchCapsClickBoostSoClicksCannotDominateStrongerRelevance(): void
+    {
+        $this->insertSite('https://example.com/exact', 'linux', '', '', 0);
+        $this->insertSite('https://example.com/clicked', 'Clicked Result', 'linux', '', 10000);
+
+        $results = $this->repository->search('linux', 0, 20);
+
+        self::assertSame('https://example.com/exact', $results[0]['url']);
+        self::assertSame('https://example.com/clicked', $results[1]['url']);
+        self::assertGreaterThan((float) $results[1]['rankingScore'], (float) $results[0]['rankingScore']);
+    }
+
     public function testSearchAppliesOffsetAndLimit(): void
     {
         $this->insertSite('https://example.com/one', 'Linux One', 'Linux', 'linux', 3);

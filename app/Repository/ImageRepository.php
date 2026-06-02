@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Doogle\Repository;
 
+use Doogle\Search\RankingExpression;
 use PDO;
 use PDOStatement;
 
@@ -92,21 +93,30 @@ final class ImageRepository implements ImageSearchRepository
     private function imageRankingSql(): string
     {
         $scores = [
-            'CASE WHEN title LIKE :rankTitleTerm THEN 100 ELSE 0 END',
-            'CASE WHEN alt LIKE :rankAltTerm THEN 60 ELSE 0 END',
-            'CASE WHEN imageUrl LIKE :rankImageUrlTerm THEN 20 ELSE 0 END',
-            '(CASE WHEN clicks > 100 THEN 100 ELSE clicks END * 0.1)',
+            RankingExpression::weightedEquals('title', ':rankTitleExactTerm', 220),
+            RankingExpression::weightedEquals('alt', ':rankAltExactTerm', 180),
+            RankingExpression::weightedLike('title', ':rankTitleTerm', 100),
+            RankingExpression::weightedLike('alt', ':rankAltTerm', 75),
+            RankingExpression::weightedLike('imageUrl', ':rankImageUrlTerm', 25),
+            RankingExpression::httpsUrl('imageUrl', 3),
+            RankingExpression::nonEmpty('alt', 5),
+            RankingExpression::nonEmpty('title', 3),
+            RankingExpression::boundedClickBoost(),
         ];
 
         if ($this->isMysql()) {
             array_unshift(
                 $scores,
-                '(MATCH(' . self::IMAGE_FULL_TEXT_COLUMNS . ') '
-                    . 'AGAINST (:rankFullTextTerm IN NATURAL LANGUAGE MODE) * 50)'
+                RankingExpression::boundedMysqlFullTextBoost(
+                    self::IMAGE_FULL_TEXT_COLUMNS,
+                    ':rankFullTextTerm',
+                    50,
+                    120
+                )
             );
         }
 
-        return '(' . implode(' + ', $scores) . ')';
+        return RankingExpression::sum($scores);
     }
 
     private function bindImageWhereTerms(PDOStatement $statement, string $term): void
@@ -128,6 +138,8 @@ final class ImageRepository implements ImageSearchRepository
         }
 
         $likeTerm = '%' . $term . '%';
+        $statement->bindValue(':rankTitleExactTerm', $term);
+        $statement->bindValue(':rankAltExactTerm', $term);
         $statement->bindValue(':rankTitleTerm', $likeTerm);
         $statement->bindValue(':rankAltTerm', $likeTerm);
         $statement->bindValue(':rankImageUrlTerm', $likeTerm);

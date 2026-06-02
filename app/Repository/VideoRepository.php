@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Doogle\Repository;
 
+use Doogle\Search\RankingExpression;
 use PDO;
 use PDOStatement;
 
@@ -83,22 +84,31 @@ final class VideoRepository implements VideoSearchRepository
     private function videoRankingSql(): string
     {
         $scores = [
-            'CASE WHEN title LIKE :rankTitleTerm THEN 100 ELSE 0 END',
-            'CASE WHEN description LIKE :rankDescriptionTerm THEN 60 ELSE 0 END',
-            'CASE WHEN videoUrl LIKE :rankVideoUrlTerm THEN 30 ELSE 0 END',
-            'CASE WHEN siteUrl LIKE :rankSiteUrlTerm THEN 10 ELSE 0 END',
-            '(CASE WHEN clicks > 100 THEN 100 ELSE clicks END * 0.1)',
+            RankingExpression::weightedEquals('title', ':rankTitleExactTerm', 230),
+            RankingExpression::weightedLike('title', ':rankTitleTerm', 100),
+            RankingExpression::weightedLike('description', ':rankDescriptionTerm', 55),
+            RankingExpression::weightedLike('videoUrl', ':rankVideoUrlTerm', 25),
+            RankingExpression::weightedLike('siteUrl', ':rankSiteUrlTerm', 15),
+            RankingExpression::httpsUrl('videoUrl', 3),
+            RankingExpression::nonEmpty('thumbnailUrl', 5),
+            RankingExpression::nonEmpty('title', 5),
+            RankingExpression::nonEmpty('description', 3),
+            RankingExpression::boundedClickBoost(),
         ];
 
         if ($this->isMysql()) {
             array_unshift(
                 $scores,
-                '(MATCH(' . self::VIDEO_FULL_TEXT_COLUMNS . ') '
-                    . 'AGAINST (:rankFullTextTerm IN NATURAL LANGUAGE MODE) * 50)'
+                RankingExpression::boundedMysqlFullTextBoost(
+                    self::VIDEO_FULL_TEXT_COLUMNS,
+                    ':rankFullTextTerm',
+                    50,
+                    120
+                )
             );
         }
 
-        return '(' . implode(' + ', $scores) . ')';
+        return RankingExpression::sum($scores);
     }
 
     private function bindVideoWhereTerms(PDOStatement $statement, string $term): void
@@ -121,6 +131,7 @@ final class VideoRepository implements VideoSearchRepository
         }
 
         $likeTerm = '%' . $term . '%';
+        $statement->bindValue(':rankTitleExactTerm', $term);
         $statement->bindValue(':rankTitleTerm', $likeTerm);
         $statement->bindValue(':rankDescriptionTerm', $likeTerm);
         $statement->bindValue(':rankVideoUrlTerm', $likeTerm);

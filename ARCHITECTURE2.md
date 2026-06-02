@@ -1191,8 +1191,56 @@ Tasks:
 - Ranking by Result Type
 - Bounded Click Boost (Bad behaviour: Result with most clicks always wins.)
 - Quality Signals
-- Search Analytics
-- Admin Ranking Settings (an analytics auth admin portal for managing/viewing ranking)
+
+Implemented ranking formula:
+
+```text
+rankingScore =
+  cappedFullTextBoost
+  + fieldRelevance
+  + qualitySignals
+  + boundedClickBoost
+```
+
+Bounded click boost:
+
+```text
+min(clicks, 100) * 0.1
+```
+
+This makes click boost useful as a tie-breaker and weak popularity signal, but
+caps it at 10 points so clicks cannot dominate stronger textual relevance.
+
+MySQL/MariaDB full-text boost is also capped:
+
+```text
+min(fullTextScore * 50, 120)
+```
+
+Deterministic ordering:
+
+```sql
+ORDER BY rankingScore DESC, clicks DESC, id DESC
+```
+
+Ranking by result type:
+
+- Sites prioritise exact/partial title, then keywords, description, URL, HTTPS, and metadata completeness.
+- Images prioritise exact/partial title, then alt text, image URL, HTTPS, and available title/alt text.
+- Videos prioritise exact/partial title, then description, video URL, site URL, HTTPS, thumbnail availability, and metadata completeness.
+
+Future optional work:
+
+- Search analytics beyond click telemetry.
+- Authenticated admin ranking settings for viewing/tuning ranking weights.
+
+Acceptance criteria:
+
+- all search verticals use the same ranking model shape
+- click counts are capped and cannot dominate stronger relevance
+- quality signals are included
+- ranking order is deterministic
+- repository tests cover ranking behaviour
 
 ---
 

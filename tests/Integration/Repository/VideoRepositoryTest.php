@@ -65,6 +65,18 @@ final class VideoRepositoryTest extends TestCase
         self::assertSame('https://example.com/description.mp4', $results[1]['videoUrl']);
     }
 
+    public function testSearchCapsClickBoostSoClicksCannotDominateStrongerRelevance(): void
+    {
+        $this->insertVideo('https://example.com/exact.mp4', 'linux', '', 0);
+        $this->insertVideo('https://example.com/clicked.mp4', 'Clicked Video', 'linux', 10000);
+
+        $results = $this->repository->search('linux', 0, 24);
+
+        self::assertSame('https://example.com/exact.mp4', $results[0]['videoUrl']);
+        self::assertSame('https://example.com/clicked.mp4', $results[1]['videoUrl']);
+        self::assertGreaterThan((float) $results[1]['rankingScore'], (float) $results[0]['rankingScore']);
+    }
+
     public function testSearchCanMatchVideoUrl(): void
     {
         $this->insertVideo('https://example.com/linux-demo.mp4', 'Demo', 'Video', 1);

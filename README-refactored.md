@@ -23,12 +23,11 @@ Completed from `ARCHITECTURE2.md`:
 - Phase G: Crawl Jobs / History
 - Phase H: Production Hardening
 - Phase I: Videos Search Vertical
+- Phase J: Search Ranking
 
 Remaining:
 
-- Phase J - Search Ranking
-
-<!-- - None currently tracked in `ARCHITECTURE2.md`. -->
+- Phase K: Search analytics and admin ranking controls are future optional work.
 
 Key changes now in place:
 
@@ -37,6 +36,7 @@ Key changes now in place:
 - `app/` contains auth, crawl, database, repository, search, and security classes.
 - Legacy root `crawl.php`, root `crawl-manual.php`, and `classes/` have been removed.
 - Search uses repositories, services, DTOs, full-text indexes, relevance ranking, and bounded click boost for sites, images, and videos.
+- Ranking uses a shared deterministic formula with capped click/full-text boosts and per-vertical quality signals.
 - Browser crawling requires an admin login and CSRF token.
 - CLI crawling does not require a browser session, but still enforces crawler safety policy.
 - Web and CLI crawl jobs are stored in `crawl_jobs` and shown on the authenticated crawl page.
