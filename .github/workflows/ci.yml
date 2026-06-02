@@ -65,6 +65,12 @@ jobs:
 # Validating workflow
 # Load language configuration
 # Error: Did not recognize the following languages: php
+# CodeQL Doesn't currently support PHP. For more information, https://codeql.github.com/docs/codeql-overview/supported-languages-and-frameworks/
+# 
+# You already have PHPStan and PHPCS in the main test job, so you are fine.
+# CodeQL can still analyse GitHub Actions workflows, but that is optional:
+# languages: actions
+# 
   # codeql:
   #   runs-on: ubuntu-latest
   #   permissions:
@@ -95,35 +101,35 @@ jobs:
 # Prepare all required actions
 # Getting action download info
 # Error: Unable to resolve action `aquasecurity/trivy-action@0.28.0`, unable to find version `0.28.0`
-  # security:
-  #   runs-on: ubuntu-latest
-  #   permissions:
-  #     contents: read
-  #     security-events: write
+  security:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      security-events: write
 
-  #   steps:
-  #     - name: Checkout
-  #       uses: actions/checkout@v5
-  #       with:
-  #         fetch-depth: 0
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v5
+        with:
+          fetch-depth: 0
 
-  #     - name: Run Gitleaks
-  #       uses: gitleaks/gitleaks-action@v2
-  #       env:
-  #         GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      - name: Run Gitleaks
+        uses: gitleaks/gitleaks-action@v3
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
-  #     - name: Run Trivy filesystem scan
-  #       uses: aquasecurity/trivy-action@0.28.0
-  #       with:
-  #         scan-type: fs
-  #         scan-ref: .
-  #         format: sarif
-  #         output: trivy-results.sarif
-  #         severity: CRITICAL,HIGH
-  #         ignore-unfixed: true
-  #         exit-code: '0'
+      - name: Run Trivy filesystem scan
+        uses: aquasecurity/trivy-action@v0.36.0
+        with:
+          scan-type: fs
+          scan-ref: .
+          format: sarif
+          output: trivy-results.sarif
+          severity: CRITICAL,HIGH
+          ignore-unfixed: true
+          exit-code: '0'
 
-  #     - name: Upload Trivy SARIF
-  #       uses: github/codeql-action/upload-sarif@v3
-  #       with:
-  #         sarif_file: trivy-results.sarif
+      - name: Upload Trivy SARIF
+        uses: github/codeql-action/upload-sarif@v4
+        with:
+          sarif_file: trivy-results.sarif
