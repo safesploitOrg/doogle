@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Doogle\Crawl;
 
 use Closure;
+use Doogle\Repository\CrawlJobRepository;
 use Doogle\Security\CrawlerSecurityPolicy;
 use Throwable;
 
@@ -17,17 +18,26 @@ final class CliCrawlCommand
 
     /** @var Closure(): CrawlService */
     private Closure $crawlServiceFactory;
+
+    /** @var (Closure(): CrawlJobRepository)|null */
+    private ?Closure $crawlJobRepositoryFactory;
+
     private UrlValidator $validator;
 
     /**
      * @param callable(): CrawlService $crawlServiceFactory
+     * @param (callable(): CrawlJobRepository)|null $crawlJobRepositoryFactory
      */
     public function __construct(
         private readonly CrawlerSecurityPolicy $policy,
         callable $crawlServiceFactory,
         ?UrlValidator $validator = null,
+        ?callable $crawlJobRepositoryFactory = null,
     ) {
         $this->crawlServiceFactory = Closure::fromCallable($crawlServiceFactory);
+        $this->crawlJobRepositoryFactory = $crawlJobRepositoryFactory !== null
+            ? Closure::fromCallable($crawlJobRepositoryFactory)
+            : null;
         $this->validator = $validator ?? new UrlValidator($policy);
     }
 
@@ -51,9 +61,25 @@ final class CliCrawlCommand
             return self::EXIT_FAILURE;
         }
 
+        $jobRepository = null;
+        $jobId = null;
+
+        if ($this->crawlJobRepositoryFactory !== null) {
+            try {
+                $jobRepository = ($this->crawlJobRepositoryFactory)();
+                $jobId = $jobRepository->create($url, null);
+                $jobRepository->markRunning($jobId);
+            } catch (Throwable $throwable) {
+                $this->writeLine($stderr, 'Crawl history unavailable. Run the crawl_jobs migration.');
+                $jobRepository = null;
+                $jobId = null;
+            }
+        }
+
         $reason = $this->validator->rejectionReason($url);
 
         if ($reason !== null) {
+            $this->recordJobResult($jobRepository, $jobId, CrawlResult::rejected($reason), $stderr);
             $this->writeLine($stderr, 'Crawl rejected: ' . $reason);
 
             return self::EXIT_REJECTED;
@@ -62,10 +88,18 @@ final class CliCrawlCommand
         try {
             $result = ($this->crawlServiceFactory)()->crawl(CrawlRequest::fromPolicy($url, $this->policy));
         } catch (Throwable $throwable) {
+            $this->recordJobResult(
+                $jobRepository,
+                $jobId,
+                CrawlResult::failed('Database/configuration failure: ' . $throwable->getMessage()),
+                $stderr
+            );
             $this->writeLine($stderr, 'Database/configuration failure: ' . $throwable->getMessage());
 
             return self::EXIT_CONFIGURATION_ERROR;
         }
+
+        $this->recordJobResult($jobRepository, $jobId, $result, $stderr);
 
         if (!$result->successful) {
             return $this->handleFailedResult($result, $stderr);
@@ -85,6 +119,23 @@ final class CliCrawlCommand
         }
 
         return self::EXIT_SUCCESS;
+    }
+
+    private function recordJobResult(
+        ?CrawlJobRepository $repository,
+        ?int $jobId,
+        CrawlResult $result,
+        callable $stderr,
+    ): void {
+        if ($repository === null || $jobId === null) {
+            return;
+        }
+
+        try {
+            $repository->markFromResult($jobId, $result);
+        } catch (Throwable $throwable) {
+            $this->writeLine($stderr, 'Crawl history could not be updated.');
+        }
     }
 
     private function handleFailedResult(CrawlResult $result, callable $stderr): int

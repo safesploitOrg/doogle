@@ -8,6 +8,7 @@ use Doogle\Crawl\CliCrawlCommand;
 use Doogle\Crawl\CrawlRequest;
 use Doogle\Crawl\CrawlService;
 use Doogle\Crawl\UrlValidator;
+use Doogle\Repository\CrawlJobRepository;
 use Doogle\Security\CrawlerSecurityPolicy;
 use Doogle\Security\PrivateNetworkBlocker;
 use PDO;
@@ -73,6 +74,54 @@ final class CliCrawlCommandTest extends TestCase
         self::assertStringContainsString('URL: https://example.com/', $stdout);
     }
 
+    public function testSuccessfulCliCrawlRecordsCompletedCrawlJob(): void
+    {
+        $policy = new CrawlerSecurityPolicy(allowPrivateNetworks: true);
+        $pdo = $this->createCrawlJobPdo();
+        $command = $this->commandWithRunner(
+            $policy,
+            static fn (CrawlRequest $request): string => 'SUCCESS<br><b>URL:</b> ' . $request->startUrl . '<br>',
+            new CrawlJobRepository($pdo)
+        );
+
+        [$exitCode] = $this->runCommand($command, ['bin/crawl', 'https://example.com/']);
+        $jobs = (new CrawlJobRepository($pdo))->recent();
+
+        self::assertSame(CliCrawlCommand::EXIT_SUCCESS, $exitCode);
+        self::assertCount(1, $jobs);
+        self::assertSame('https://example.com/', $jobs[0]->startUrl);
+        self::assertNull($jobs[0]->requestedByUserId);
+        self::assertSame('completed', $jobs[0]->status);
+        self::assertSame(1, $jobs[0]->pagesIndexed);
+    }
+
+    public function testRejectedCliCrawlRecordsRejectedCrawlJob(): void
+    {
+        $created = false;
+        $policy = new CrawlerSecurityPolicy();
+        $pdo = $this->createCrawlJobPdo();
+        $command = new CliCrawlCommand(
+            $policy,
+            function () use (&$created): CrawlService {
+                $created = true;
+                throw new RuntimeException('service should not be created');
+            },
+            $this->validator($policy),
+            static fn (): CrawlJobRepository => new CrawlJobRepository($pdo)
+        );
+
+        [$exitCode] = $this->runCommand($command, ['bin/crawl', 'http://127.0.0.1']);
+        $jobs = (new CrawlJobRepository($pdo))->recent();
+
+        self::assertSame(CliCrawlCommand::EXIT_REJECTED, $exitCode);
+        self::assertFalse($created);
+        self::assertCount(1, $jobs);
+        self::assertSame('http://127.0.0.1', $jobs[0]->startUrl);
+        self::assertNull($jobs[0]->requestedByUserId);
+        self::assertSame('rejected', $jobs[0]->status);
+        self::assertSame('private or reserved network host', $jobs[0]->errorMessage);
+    }
+
     public function testCrawlerFailureReturnsFailureExitCode(): void
     {
         $policy = new CrawlerSecurityPolicy(allowPrivateNetworks: true);
@@ -110,8 +159,11 @@ final class CliCrawlCommandTest extends TestCase
     /**
      * @param callable(CrawlRequest): string $runner
      */
-    private function commandWithRunner(CrawlerSecurityPolicy $policy, callable $runner): CliCrawlCommand
-    {
+    private function commandWithRunner(
+        CrawlerSecurityPolicy $policy,
+        callable $runner,
+        ?CrawlJobRepository $crawlJobRepository = null,
+    ): CliCrawlCommand {
         $service = new CrawlService(
             new PDO('sqlite::memory:'),
             $policy,
@@ -122,7 +174,10 @@ final class CliCrawlCommandTest extends TestCase
         return new CliCrawlCommand(
             $policy,
             static fn (): CrawlService => $service,
-            $this->validator($policy)
+            $this->validator($policy),
+            $crawlJobRepository !== null
+                ? static fn (): CrawlJobRepository => $crawlJobRepository
+                : null
         );
     }
 
@@ -154,5 +209,28 @@ final class CliCrawlCommandTest extends TestCase
             $policy,
             new PrivateNetworkBlocker(static fn (string $host): array => [])
         );
+    }
+
+    private function createCrawlJobPdo(): PDO
+    {
+        $pdo = new PDO('sqlite::memory:');
+        $pdo->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);
+        $pdo->exec(
+            'CREATE TABLE crawl_jobs (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                start_url VARCHAR(512) NOT NULL,
+                requested_by_user_id INTEGER NULL,
+                status VARCHAR(20) NOT NULL DEFAULT "pending",
+                pages_discovered INTEGER NOT NULL DEFAULT 0,
+                pages_indexed INTEGER NOT NULL DEFAULT 0,
+                images_indexed INTEGER NOT NULL DEFAULT 0,
+                urls_rejected INTEGER NOT NULL DEFAULT 0,
+                error_message TEXT NULL,
+                created_at TEXT DEFAULT CURRENT_TIMESTAMP,
+                updated_at TEXT DEFAULT CURRENT_TIMESTAMP
+            )'
+        );
+
+        return $pdo;
     }
 }

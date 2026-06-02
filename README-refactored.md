@@ -35,7 +35,7 @@ Key changes now in place:
 - Search uses repositories, services, DTOs, full-text indexes, relevance ranking, and bounded click boost.
 - Browser crawling requires an admin login and CSRF token.
 - CLI crawling does not require a browser session, but still enforces crawler safety policy.
-- Crawl jobs are stored in `crawl_jobs` and shown on the authenticated crawl page.
+- Web and CLI crawl jobs are stored in `crawl_jobs` and shown on the authenticated crawl page.
 
 ## Quick Start With Docker
 
@@ -145,8 +145,8 @@ history.
 
 5. Submit a URL.
 
-The crawl result and recent crawl history are shown on the same page. Crawl
-history is stored in `crawl_jobs`.
+The crawl result and recent crawl history are shown on the same page. Web and
+CLI crawl history is stored in `crawl_jobs`.
 
 ## Crawling: CLI
 
@@ -173,7 +173,8 @@ Exit codes:
 - `3`: database/configuration failure
 
 CLI crawling still blocks private/reserved networks by default and still uses
-the same crawler limits as the web UI.
+the same crawler limits as the web UI. CLI crawl jobs are recorded with
+`requested_by_user_id = NULL` because they are not tied to a browser session.
 
 ## Crawler Safety Settings
 

@@ -7,6 +7,7 @@ use Doogle\Crawl\CliCrawlCommand;
 use Doogle\Crawl\CrawlService;
 use Doogle\Crawl\UrlValidator;
 use Doogle\Database\ConnectionFactory;
+use Doogle\Repository\CrawlJobRepository;
 use Doogle\Security\CrawlerSecurityPolicy;
 
 require_once dirname(__DIR__) . '/vendor/autoload.php';
@@ -26,6 +27,10 @@ $command = new CliCrawlCommand(
         $pdo = $connectionFactory->create();
 
         return new CrawlService($pdo, $policy, new UrlValidator($policy));
+    },
+    null,
+    static function () use ($connectionFactory): CrawlJobRepository {
+        return new CrawlJobRepository($connectionFactory->create());
     }
 );
 
