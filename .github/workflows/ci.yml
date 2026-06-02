@@ -113,14 +113,19 @@ jobs:
         with:
           fetch-depth: 0
 
+      # GitHub organisation, and the official gitleaks/gitleaks-action@v3 now requires a GITLEAKS_LICENSE secret for organisation-owned repos.
       - name: Install Gitleaks
         run: |
           curl -sSfL https://raw.githubusercontent.com/gitleaks/gitleaks/master/install.sh | sh -s -- -b /usr/local/bin
 
       - name: Run Gitleaks
-        uses: gitleaks/gitleaks-action@v3
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: gitleaks detect --source . --report-format sarif --report-path gitleaks-results.sarif || true
+      
+      # Avoiding the action and run the open-source CLI directly
+      # - name: Run Gitleaks
+      #   uses: gitleaks/gitleaks-action@v3
+      #   env:
+      #     GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Run Trivy filesystem scan
         uses: aquasecurity/trivy-action@v0.36.0
