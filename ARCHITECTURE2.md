@@ -1179,6 +1179,21 @@ Acceptance criteria:
 - crawler security controls still apply to video URLs
 - tests pass
 
+### Phase J - Search Ranking
+
+Goal: Improve Doogle’s search quality using an explainable, deterministic, and testable ranking model across all supported search verticals
+
+Tasks:
+
+- safe from click-count domination
+- consistent across Sites, Images, and Videos
+- Target Ranking Formula
+- Ranking by Result Type
+- Bounded Click Boost (Bad behaviour: Result with most clicks always wins.)
+- Quality Signals
+- Search Analytics
+- Admin Ranking Settings (an analytics auth admin portal for managing/viewing ranking)
+
 ---
 
 ## 20. Security Requirements

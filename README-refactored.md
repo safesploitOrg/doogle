@@ -26,7 +26,9 @@ Completed from `ARCHITECTURE2.md`:
 
 Remaining:
 
-- None currently tracked in `ARCHITECTURE2.md`.
+- Phase J - Search Ranking
+
+<!-- - None currently tracked in `ARCHITECTURE2.md`. -->
 
 Key changes now in place:
 
