@@ -1226,6 +1226,18 @@ the local plain-HTTP Docker runtime.
 
 ### 20.4 Rate Limiting And Event Logging
 
+#### Rate Limiting Implementation
+
+Rate limiting uses **IP-based identification** with a sliding time window stored in local files.
+
+**For login requests**: rate limit by `IP + username` to prevent brute force attacks on a single account from a specific IP.
+
+**For crawl requests**: rate limit by `user ID` (if authenticated) or `IP` (if unauthenticated).
+
+Each attempt is recorded with a timestamp. Attempts older than the configured time window are automatically pruned. When the number of recent attempts exceeds the configured limit, the request is rejected and includes a `Retry-After` response.
+
+#### Rate Limiting Configuration
+
 Defaults:
 
 ```env
@@ -1233,6 +1245,22 @@ DOOGLE_LOGIN_RATE_LIMIT_ATTEMPTS=10
 DOOGLE_LOGIN_RATE_LIMIT_WINDOW=60
 DOOGLE_CRAWL_RATE_LIMIT_ATTEMPTS=5
 DOOGLE_CRAWL_RATE_LIMIT_WINDOW=60
+DOOGLE_RATE_LIMIT_DIR=/tmp/doogle-rate-limits
+```
+
+#### Rate Limiting Caveats
+
+**Single-server only**: File-based rate limit storage does not work across multiple servers. For distributed deployments, implement rate limiting at the reverse proxy (nginx, HAProxy) or use a shared backend (Redis, Memcached).
+
+**IP detection**: Rate limiting uses `$_SERVER['REMOTE_ADDR']` only and does not parse `X-Forwarded-For` or other proxy headers. This is secure by default (prevents IP spoofing), but requires proper reverse proxy configuration. The proxy must set `REMOTE_ADDR` to the true client IP and strip untrusted headers.
+
+**Development note**: Ensure your local development setup does not route requests through unexpected proxies that would hide the real client IP.
+
+#### Event Logging
+
+All authentication, crawl submission, CSRF validation, and rate-limit violations should be logged to:
+
+```env
 DOOGLE_SECURITY_LOG=/var/log/doogle/security.log
 ```
 

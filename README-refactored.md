@@ -231,6 +231,28 @@ Docker stack is plain HTTP, so it keeps secure cookies disabled by default.
 Enable HSTS at the TLS-terminating proxy or load balancer, not in the local HTTP
 container.
 
+## Rate Limiting
+
+Login and crawl POST requests are rate limited to prevent brute force and abuse.
+
+### How It Works
+
+Rate limiting is **IP-based** and uses a sliding time window stored in local files.
+
+For **login requests**: rate limit by `IP + username` (prevents brute force on a single account from a specific IP).
+
+For **crawl requests**: rate limit by `user ID` (authenticated) or `IP` (unauthenticated).
+
+Each attempt is recorded with a timestamp. Attempts older than the configured window are automatically pruned. If the number of recent attempts exceeds the limit, the request is rejected and the client is told how long to wait before retrying.
+
+### Caveats
+
+**Single-server deployments only**: Rate limiting uses file-based storage and does not work across multiple server instances. For distributed deployments, implement rate limiting at the reverse proxy layer or use a shared backend like Redis.
+
+**`$_SERVER['REMOTE_ADDR']` only**: Rate limiting does not parse `X-Forwarded-For`, `CF-Connecting-IP`, or other proxy headers. This is **secure by default** because it prevents IP spoofing through proxy headers. However, you must ensure your reverse proxy is properly configured to strip untrusted headers and set only the actual client IP in `REMOTE_ADDR`. If you are behind a load balancer or CDN that you control, configure it to forward the true client IP through the standard proxy chain.
+
+**Local development**: During local testing, ensure that requests are not being routed through unexpected proxies that might hide the real IP.
+
 ## Database And Migrations
 
 Fresh Docker databases are created from `doogle-tables-no-data.sql`.
