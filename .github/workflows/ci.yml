@@ -113,6 +113,10 @@ jobs:
         with:
           fetch-depth: 0
 
+      - name: Install Gitleaks
+        run: |
+          curl -sSfL https://raw.githubusercontent.com/gitleaks/gitleaks/master/install.sh | sh -s -- -b /usr/local/bin
+
       - name: Run Gitleaks
         uses: gitleaks/gitleaks-action@v3
         env:
