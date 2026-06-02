@@ -50,6 +50,7 @@ final class CrawlJobRepository
                  pages_discovered = :pages_discovered,
                  pages_indexed = :pages_indexed,
                  images_indexed = :images_indexed,
+                 videos_indexed = :videos_indexed,
                  urls_rejected = :urls_rejected,
                  error_message = :error_message,
                  updated_at = CURRENT_TIMESTAMP
@@ -62,6 +63,7 @@ final class CrawlJobRepository
             ':pages_discovered' => $result->pagesDiscovered,
             ':pages_indexed' => $result->pagesIndexed,
             ':images_indexed' => $result->imagesIndexed,
+            ':videos_indexed' => $result->videosIndexed,
             ':urls_rejected' => $result->urlsRejected,
             ':error_message' => $result->errors !== [] ? implode("\n", $result->errors) : null,
         ]);
@@ -80,6 +82,7 @@ final class CrawlJobRepository
                     pages_discovered,
                     pages_indexed,
                     images_indexed,
+                    videos_indexed,
                     urls_rejected,
                     error_message,
                     created_at,

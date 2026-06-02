@@ -42,6 +42,23 @@ CREATE TABLE IF NOT EXISTS `images` (
 -- --------------------------------------------------------
 
 --
+-- Table structure for table `videos`
+--
+
+CREATE TABLE IF NOT EXISTS `videos` (
+  `id` int(11) NOT NULL,
+  `siteUrl` varchar(512) NOT NULL,
+  `videoUrl` varchar(512) NOT NULL,
+  `thumbnailUrl` varchar(512) NOT NULL DEFAULT '',
+  `title` varchar(512) NOT NULL DEFAULT '',
+  `description` varchar(512) NOT NULL DEFAULT '',
+  `source` varchar(100) NOT NULL DEFAULT '',
+  `clicks` int(11) NOT NULL DEFAULT '0'
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+-- --------------------------------------------------------
+
+--
 -- Table structure for table `sites`
 --
 
@@ -83,6 +100,7 @@ CREATE TABLE IF NOT EXISTS `crawl_jobs` (
   `pages_discovered` int(11) NOT NULL DEFAULT '0',
   `pages_indexed` int(11) NOT NULL DEFAULT '0',
   `images_indexed` int(11) NOT NULL DEFAULT '0',
+  `videos_indexed` int(11) NOT NULL DEFAULT '0',
   `urls_rejected` int(11) NOT NULL DEFAULT '0',
   `error_message` text DEFAULT NULL,
   `created_at` timestamp DEFAULT CURRENT_TIMESTAMP,
@@ -100,6 +118,14 @@ CREATE TABLE IF NOT EXISTS `crawl_jobs` (
 ALTER TABLE `images`
   ADD PRIMARY KEY (`id`),
   ADD FULLTEXT KEY `ft_images_search` (`title`, `alt`, `imageUrl`);
+
+--
+-- Indexes for table `videos`
+--
+ALTER TABLE `videos`
+  ADD PRIMARY KEY (`id`),
+  ADD KEY `idx_videos_video_url` (`videoUrl`),
+  ADD FULLTEXT KEY `ft_videos_search` (`title`, `description`, `videoUrl`, `siteUrl`);
 
 --
 -- Indexes for table `sites`
@@ -133,6 +159,12 @@ ALTER TABLE `crawl_jobs`
 --
 ALTER TABLE `images`
   MODIFY `id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=13003;
+
+--
+-- AUTO_INCREMENT for table `videos`
+--
+ALTER TABLE `videos`
+  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT;
 
 --
 -- AUTO_INCREMENT for table `sites`

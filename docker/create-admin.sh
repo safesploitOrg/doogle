@@ -5,7 +5,7 @@ SCRIPT_DIR=$(CDPATH= cd -- "$(dirname -- "$0")" && pwd)
 COMPOSE_FILE="$SCRIPT_DIR/compose.yml"
 
 if [ "$#" -lt 2 ]; then
-    printf '%s\n' "Usage: DOOGLE_ADMIN_PASSWORD='password' ./docker/create-admin.sh <username> <email>"
+    printf '%s\n' "Usage: DOOGLE_ADMIN_PASSWORD='password' $0 <username> <email>"
     exit 1
 fi
 

@@ -137,6 +137,7 @@ function statusLabel(string $status): string
 				<p>Pages discovered: <?php echo $result->pagesDiscovered; ?></p>
 				<p>Pages indexed: <?php echo $result->pagesIndexed; ?></p>
 				<p>Images indexed: <?php echo $result->imagesIndexed; ?></p>
+				<p>Videos indexed: <?php echo $result->videosIndexed; ?></p>
 				<p>URLs rejected: <?php echo $result->urlsRejected; ?></p>
 			</div>
 
@@ -161,6 +162,7 @@ function statusLabel(string $status): string
 							Pages discovered: <?php echo h((string) $job->pagesDiscovered); ?>,
 							pages indexed: <?php echo h((string) $job->pagesIndexed); ?>,
 							images indexed: <?php echo h((string) $job->imagesIndexed); ?>,
+							videos indexed: <?php echo h((string) $job->videosIndexed); ?>,
 							URLs rejected: <?php echo h((string) $job->urlsRejected); ?>
 						</span>
 						<span class="url"><?php echo h($job->updatedAt); ?></span>

@@ -4,12 +4,15 @@ declare(strict_types=1);
 
 use Doogle\Repository\ImageRepository;
 use Doogle\Repository\SiteRepository;
+use Doogle\Repository\VideoRepository;
 use Doogle\Search\FieldFormatter;
 use Doogle\Search\ImageResult;
 use Doogle\Search\ImageSearchService;
 use Doogle\Search\Paginator;
 use Doogle\Search\SearchResult;
 use Doogle\Search\SearchService;
+use Doogle\Search\VideoResult;
+use Doogle\Search\VideoSearchService;
 
 require_once __DIR__ . '/../vendor/autoload.php';
 include(__DIR__ . '/../config.php');
@@ -20,22 +23,29 @@ if (!isset($_GET['term'])) {
 
 $term = (string) $_GET['term'];
 $type = isset($_GET['type']) ? (string) $_GET['type'] : 'sites';
-$type = in_array($type, ['sites', 'images'], true) ? $type : 'sites';
+$type = in_array($type, ['sites', 'images', 'videos'], true) ? $type : 'sites';
 $paginator = new Paginator();
 $fieldFormatter = new FieldFormatter();
 $page = $paginator->normalizePage(isset($_GET['page']) ? (int) $_GET['page'] : 1);
 
-if ($type === 'images') {
-    $pageSize = 30;
-    $searchPage = (new ImageSearchService(new ImageRepository($con), $paginator))->search($term, $page, $pageSize);
-    $numResults = $searchPage->total;
-    $resultsHtml = renderImageResults($searchPage->results);
-} else {
-    $pageSize = 20;
-    $searchPage = (new SearchService(new SiteRepository($con), $paginator))->search($term, $page, $pageSize);
-    $numResults = $searchPage->total;
-    $resultsHtml = renderSiteResults($searchPage->results, $fieldFormatter);
-}
+$pageSize = match ($type) {
+    'images' => 30,
+    'videos' => 24,
+    default => 20,
+};
+
+$searchPage = match ($type) {
+    'images' => (new ImageSearchService(new ImageRepository($con), $paginator))->search($term, $page, $pageSize),
+    'videos' => (new VideoSearchService(new VideoRepository($con), $paginator))->search($term, $page, $pageSize),
+    default => (new SearchService(new SiteRepository($con), $paginator))->search($term, $page, $pageSize),
+};
+
+$numResults = $searchPage->total;
+$resultsHtml = match ($type) {
+    'images' => renderImageResults($searchPage->results),
+    'videos' => renderVideoResults($searchPage->results, $fieldFormatter),
+    default => renderSiteResults($searchPage->results, $fieldFormatter),
+};
 
 function h(string $value): string
 {
@@ -106,6 +116,45 @@ function renderImageResults(array $results): string
     return $html . '</div>';
 }
 
+/**
+ * @param list<VideoResult> $results
+ */
+function renderVideoResults(array $results, FieldFormatter $fieldFormatter): string
+{
+    $html = "<div class='videoResults'>";
+
+    foreach ($results as $result) {
+        $videoUrl = h($result->videoUrl);
+        $siteUrl = h($result->siteUrl);
+        $thumbnailUrl = h($result->thumbnailUrl);
+        $title = h($fieldFormatter->trim($result->displayTitle(), 80));
+        $description = h($fieldFormatter->trim($result->description, 140));
+        $sourceValue = $result->source !== ''
+            ? $result->source
+            : (string) (parse_url($result->videoUrl, PHP_URL_HOST) ?: 'Video');
+        $source = h($sourceValue);
+
+        $thumbnailHtml = $thumbnailUrl !== ''
+            ? "<img src='{$thumbnailUrl}' alt='{$title}'>"
+            : "<div class='videoPlaceholder'>Video</div>";
+
+        $html .= "<article class='videoCard'>
+                    <a class='videoResult' href='{$videoUrl}' data-videoUrl='{$videoUrl}'>
+                        <div class='videoThumbnail'>
+                            {$thumbnailHtml}
+                            <span class='videoPlay' aria-hidden='true'></span>
+                        </div>
+                        <h3>{$title}</h3>
+                    </a>
+                    <span class='videoSource'>{$source}</span>
+                    <a class='videoSite' href='{$siteUrl}'>{$siteUrl}</a>
+                    <p>{$description}</p>
+                </article>";
+    }
+
+    return $html . '</div>';
+}
+
 function jsonForScript(string $value): string
 {
     return (string) json_encode($value, JSON_HEX_TAG | JSON_HEX_APOS | JSON_HEX_AMP | JSON_HEX_QUOT);
@@ -124,7 +173,7 @@ function jsonForScript(string $value): string
     <link rel="apple-touch-icon" href="assets/images/favicon/apple-touch-icon.png">
     <link rel="android-chrome-icon" type="image/png" href="assets/images/favicon/android-chrome-512x512.png">
 
-    <meta name="description" content="Search the web for sites and images.">
+    <meta name="description" content="Search the web for sites, images, and videos.">
     <meta name="keywords" content="Search engine, doogle, websites">
     <meta name="author" content="Zepher Ashe">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -169,6 +218,11 @@ function jsonForScript(string $value): string
                     <li class="<?php echo $type === 'images' ? 'active' : ''; ?>">
                         <a href='<?php echo 'search.php?term=' . queryTerm($term) . '&type=images'; ?>'>
                             Images
+                        </a>
+                    </li>
+                    <li class="<?php echo $type === 'videos' ? 'active' : ''; ?>">
+                        <a href='<?php echo 'search.php?term=' . queryTerm($term) . '&type=videos'; ?>'>
+                            Videos
                         </a>
                     </li>
                 </ul>

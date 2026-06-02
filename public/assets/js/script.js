@@ -17,6 +17,20 @@ $(document).ready(function() {
 		return false;
 	});
 
+	$(".videoResult").on("click", function() {
+
+		var videoUrl = $(this).attr("data-videoUrl");
+		var url = $(this).attr("href");
+
+		if(!videoUrl) {
+			alert("data-videoUrl attribute not found"); //DEBUGGING
+		}
+
+		increaseVideoClicks(videoUrl, url);
+
+		return false;
+	});
+
 
 	var grid = $(".imageResults");
 
@@ -106,6 +120,20 @@ function increaseImageClicks(imageUrl) {
 			alert(result);
 			return;
 		}
+	});
+
+}
+
+function increaseVideoClicks(videoUrl, url) {
+
+	$.post("ajax/updateVideoCount.php", {videoUrl: videoUrl})
+	.done(function(result) {
+		if(result != "") {
+			alert(result);
+			return;
+		}
+
+		window.location.href = url;
 	});
 
 }

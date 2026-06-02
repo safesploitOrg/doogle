@@ -3,7 +3,7 @@
 > **Status:** Post-modernisation architecture source of truth  
 > **Audience:** Maintainer, Codex, GitHub Copilot, contributors  
 > **Repository:** `safesploitOrg/doogle`  
-> **Document purpose:** Define Doogle's next architecture after the initial legacy-modernisation work: authenticated crawling, CLI crawling, public web-root isolation, user/session authentication, legacy code removal, and future platform direction.
+> **Document purpose:** Define Doogle's next architecture after the initial legacy-modernisation work: authenticated crawling, CLI crawling, public web-root isolation, user/session authentication, legacy code removal, video search, and future platform direction.
 
 ---
 
@@ -20,6 +20,7 @@ The focus is no longer just preserving legacy behaviour. The focus is now to mak
 - a `public/` web root
 - authenticated browser-based crawling
 - CLI-based crawling
+- site, image, and video search verticals
 - active use of the existing `users` table
 - session authentication
 - CSRF protection for crawl actions
@@ -61,6 +62,8 @@ This architecture covers:
 - password hashing and verification
 - CSRF protection for web crawl requests
 - crawler security policy enforcement in both web and CLI paths
+- public site, image, and video search
+- video metadata extraction from safe crawl targets
 - legacy file/directory classification
 - removal plan for legacy compatibility files
 - future crawl job/history model
@@ -106,14 +109,17 @@ The next target layout is:
 │   │   ├── ImageRepository.php
 │   │   ├── ImageSearchRepository.php
 │   │   ├── SiteRepository.php
-│   │   └── SiteSearchRepository.php
+│   │   ├── SiteSearchRepository.php
+│   │   ├── VideoRepository.php
+│   │   └── VideoSearchRepository.php
 │   ├── Search/
 │   └── Security/
 │       ├── CrawlerSecurityPolicy.php
 │       ├── CsrfToken.php
 │       └── PrivateNetworkBlocker.php
 ├── bin/
-│   └── crawl
+│   ├── crawl
+│   └── create-admin
 ├── database/
 │   └── migrations/
 ├── docker/
@@ -133,7 +139,8 @@ The next target layout is:
 │   ├── ajax/
 │   │   ├── setBroken.php
 │   │   ├── updateImageCount.php
-│   │   └── updateLinkCount.php
+│   │   ├── updateLinkCount.php
+│   │   └── updateVideoCount.php
 │   └── assets/
 ├── tests/
 │   ├── Integration/
@@ -179,6 +186,10 @@ public/
 ├── logout.php
 ├── crawl.php
 ├── ajax/
+│   ├── setBroken.php
+│   ├── updateImageCount.php
+│   ├── updateLinkCount.php
+│   └── updateVideoCount.php
 └── assets/
 ```
 
@@ -251,9 +262,10 @@ Authentication authorises a user to request a crawl. It must not weaken crawler 
 | Path / Command | Auth Required | Purpose |
 |---|---:|---|
 | `/` | No | Public search homepage |
-| `/search.php` | No | Public site/image search |
+| `/search.php` | No | Public site/image/video search |
 | `/ajax/updateLinkCount.php` | No | Click telemetry |
 | `/ajax/updateImageCount.php` | No | Image click telemetry |
+| `/ajax/updateVideoCount.php` | No | Video click telemetry |
 | `/ajax/setBroken.php` | No | Broken image telemetry |
 | `/login.php` | No | Login form |
 | `/logout.php` | Yes | Session destruction |
@@ -627,6 +639,8 @@ final readonly class CrawlResult
         public int $imagesIndexed,
         public int $urlsRejected,
         public array $errors = [],
+        public string $output = '',
+        public int $videosIndexed = 0,
     ) {}
 }
 ```
@@ -640,7 +654,7 @@ final readonly class CrawlResult
 - enforce policy
 - fetch pages
 - parse pages
-- index sites/images through repositories
+- index sites/images/videos through repositories
 - track limits
 - return `CrawlResult`
 
@@ -653,13 +667,77 @@ It should not:
 
 ---
 
-## 14. Future Crawl Jobs
+## 14. Video Search Vertical
 
-### 14.1 Why Crawl Jobs Matter
+### 14.1 Goal
+
+Video search is a third public search vertical alongside sites and images:
+
+```text
+Sites | Images | Videos
+```
+
+Supported URLs:
+
+```text
+/search.php?term=linux&type=sites
+/search.php?term=linux&type=images
+/search.php?term=linux&type=videos
+```
+
+### 14.2 Data Model
+
+Video references are stored separately from `sites` and `images`:
+
+```sql
+CREATE TABLE videos (
+  id INT AUTO_INCREMENT PRIMARY KEY,
+  siteUrl VARCHAR(512) NOT NULL,
+  videoUrl VARCHAR(512) NOT NULL,
+  thumbnailUrl VARCHAR(512) NOT NULL DEFAULT '',
+  title VARCHAR(255) NOT NULL DEFAULT '',
+  description VARCHAR(512) NOT NULL DEFAULT '',
+  source VARCHAR(100) NOT NULL DEFAULT '',
+  clicks INT NOT NULL DEFAULT 0,
+  KEY idx_videos_video_url (videoUrl),
+  FULLTEXT KEY ft_videos_search (title, description, videoUrl, siteUrl)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+```
+
+### 14.3 Crawl Extraction
+
+`CrawlService` extracts video references from:
+
+- Open Graph and Twitter video metadata
+- `<video>` elements
+- `<source type="video/...">` elements
+- known safe embedded video players
+- direct video file URLs
+
+Every discovered video URL and thumbnail URL must go through URL normalisation,
+URL validation, and crawler security policy checks before storage. Crawler auth
+must not bypass private/reserved network blocking.
+
+### 14.4 Search And UI
+
+Video search uses a repository, service, and DTO path like sites and images.
+The first video layout is a responsive thumbnail-card grid, not Masonry.
+
+Video click/previews are recorded through:
+
+```text
+/ajax/updateVideoCount.php
+```
+
+---
+
+## 15. Crawl Jobs And History
+
+### 15.1 Why Crawl Jobs Matter
 
 Browser-triggered synchronous crawling is simple but limited.
 
-Future crawl jobs allow:
+Crawl jobs allow:
 
 - status tracking
 - history
@@ -668,7 +746,7 @@ Future crawl jobs allow:
 - better observability
 - scheduled recrawls
 
-### 14.2 Future Table
+### 15.2 Table
 
 ```sql
 CREATE TABLE crawl_jobs (
@@ -679,6 +757,7 @@ CREATE TABLE crawl_jobs (
   pages_discovered INT NOT NULL DEFAULT 0,
   pages_indexed INT NOT NULL DEFAULT 0,
   images_indexed INT NOT NULL DEFAULT 0,
+  videos_indexed INT NOT NULL DEFAULT 0,
   urls_rejected INT NOT NULL DEFAULT 0,
   error_message TEXT NULL,
   created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
@@ -688,7 +767,7 @@ CREATE TABLE crawl_jobs (
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 ```
 
-### 14.3 Future Flow
+### 15.3 Flow
 
 ```text
 User submits crawl
@@ -704,13 +783,14 @@ job status updated
 admin sees history/status
 ```
 
-This is not required for the immediate authenticated crawl implementation, but it is the preferred medium-term architecture.
+The current implementation records web and CLI crawl jobs synchronously. Async
+workers and scheduled recrawls remain the preferred medium-term direction.
 
 ---
 
-## 15. Legacy File Classification
+## 16. Legacy File Classification
 
-### 15.1 Keep
+### 16.1 Keep
 
 These are part of the modernised architecture:
 
@@ -729,7 +809,7 @@ ARCHITECTURE2.md
 README.md
 ```
 
-### 15.2 Transitional
+### 16.2 Transitional
 
 These may remain temporarily while compatibility is confirmed:
 
@@ -740,7 +820,7 @@ crawl.php
 crawl-manual.php
 ```
 
-### 15.3 Remove After Replacement
+### 16.3 Remove After Replacement
 
 These should be removed once replacements are proven:
 
@@ -757,7 +837,7 @@ classes/Crawler.php
 classes/DomDocumentParser.php
 ```
 
-### 15.4 Removal Checks
+### 16.4 Removal Checks
 
 Before deleting legacy files, run:
 
@@ -781,9 +861,9 @@ composer sbom
 
 ---
 
-## 16. Docker Runtime Updates
+## 17. Docker Runtime Updates
 
-### 16.1 Public Root
+### 17.1 Public Root
 
 Docker Apache config should serve:
 
@@ -791,7 +871,7 @@ Docker Apache config should serve:
 /var/www/html/public
 ```
 
-### 16.2 CLI Crawl Wrapper
+### 17.2 CLI Crawl Wrapper
 
 Add:
 
@@ -816,7 +896,7 @@ fi
 docker compose -f "$COMPOSE_FILE" exec app php bin/crawl "$@"
 ```
 
-### 16.3 Local Workflow
+### 17.3 Local Workflow
 
 ```bash
 ./docker/up.sh
@@ -827,9 +907,9 @@ docker compose -f "$COMPOSE_FILE" exec app php bin/crawl "$@"
 
 ---
 
-## 17. Testing Strategy v2
+## 18. Testing Strategy v2
 
-### 17.1 New Unit Tests
+### 18.1 New Unit Tests
 
 Add tests for:
 
@@ -841,9 +921,11 @@ CsrfTokenTest
 CrawlRequestTest
 CrawlResultTest
 CrawlServiceTest
+VideoSearchServiceTest
+VideoRepositoryTest
 ```
 
-### 17.2 Auth Tests
+### 18.2 Auth Tests
 
 Test:
 
@@ -854,7 +936,7 @@ Test:
 - logout clears session
 - admin role check works
 
-### 17.3 CSRF Tests
+### 18.3 CSRF Tests
 
 Test:
 
@@ -863,7 +945,7 @@ Test:
 - missing token fails
 - invalid token fails
 
-### 17.4 Web Crawl Access Tests
+### 18.4 Web Crawl Access Tests
 
 Test:
 
@@ -873,7 +955,7 @@ Test:
 - authenticated POST requires CSRF
 - authenticated POST rejects unsafe URL
 
-### 17.5 CLI Crawl Tests
+### 18.5 CLI Crawl Tests
 
 Test:
 
@@ -883,7 +965,7 @@ Test:
 - valid URL creates crawl request
 - CLI does not require session
 
-### 17.6 Security Regression Tests
+### 18.6 Security Regression Tests
 
 Both web and CLI crawl paths must reject:
 
@@ -898,9 +980,19 @@ file:///etc/passwd
 javascript:alert(1)
 ```
 
+### 18.7 Video Search Tests
+
+Test:
+
+- crawler extracts safe video references without live HTTP calls
+- unsafe/private video URLs are rejected before storage
+- video repository search returns ranked results
+- video click telemetry increments click counts
+- video DTOs and pagination preserve expected result shape
+
 ---
 
-## 18. Implementation Phases
+## 19. Implementation Phases
 
 ### Phase A — Public Web Root
 
@@ -1063,11 +1155,31 @@ Acceptance criteria:
 - CI checks pass
 - production risks documented
 
+### Phase I — Videos Search Vertical
+
+Goal: add videos as a third public search vertical.
+
+Tasks:
+
+- add `videos` table and migration
+- extract video references during crawl
+- add video repository, search service, DTOs, and tests
+- render `/search.php?type=videos`
+- add video click telemetry endpoint
+- update crawl job/history counts
+
+Acceptance criteria:
+
+- `Sites | Images | Videos` tabs render
+- video search uses responsive thumbnail cards
+- crawler security controls still apply to video URLs
+- tests pass
+
 ---
 
-## 19. Security Requirements
+## 20. Security Requirements
 
-### 19.1 General
+### 20.1 General
 
 - Use prepared statements.
 - Escape all HTML output.
@@ -1078,7 +1190,7 @@ Acceptance criteria:
 - Use CSRF protection for state-changing web actions.
 - Keep crawler security policy enabled by default.
 
-### 19.2 Session Cookie Settings
+### 20.2 Session Cookie Settings
 
 Recommended production settings:
 
@@ -1092,7 +1204,7 @@ session_set_cookie_params([
 
 For local HTTP development, `secure` may need to be false.
 
-### 19.3 Crawler Abuse Controls
+### 20.3 Crawler Abuse Controls
 
 - max crawl depth
 - max pages
@@ -1105,9 +1217,9 @@ For local HTTP development, `secure` may need to be false.
 
 ---
 
-## 20. Documentation Updates Required
+## 21. Documentation Updates Required
 
-Update `README.md` to prefer the new flow:
+Update `README-refactored.md` to prefer the new flow:
 
 ```bash
 ./docker/up.sh
@@ -1119,6 +1231,7 @@ Update `README.md` to prefer the new flow:
 Document:
 
 - public search usage
+- video search usage
 - admin login
 - crawl form
 - CLI crawling
@@ -1131,7 +1244,7 @@ Update `ARCHITECTURE.md` to state that the legacy-modernisation phase has been s
 
 ---
 
-## 21. Definition of Done
+## 22. Definition of Done
 
 A v2 task is done when:
 
@@ -1149,7 +1262,7 @@ A v2 task is done when:
 
 ---
 
-## 22. Target End State
+## 23. Target End State
 
 The desired v2 end state is:
 
@@ -1157,7 +1270,7 @@ The desired v2 end state is:
 Doogle
   |
   +-- public search engine UI
-  +-- public image/site search
+  +-- public site/image/video search
   +-- authenticated admin crawl UI
   +-- trusted CLI crawl command
   +-- active users table

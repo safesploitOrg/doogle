@@ -27,6 +27,7 @@ final class CrawlJobRepositoryTest extends TestCase
                 pages_discovered INTEGER NOT NULL DEFAULT 0,
                 pages_indexed INTEGER NOT NULL DEFAULT 0,
                 images_indexed INTEGER NOT NULL DEFAULT 0,
+                videos_indexed INTEGER NOT NULL DEFAULT 0,
                 urls_rejected INTEGER NOT NULL DEFAULT 0,
                 error_message TEXT NULL,
                 created_at TEXT DEFAULT CURRENT_TIMESTAMP,
@@ -68,6 +69,7 @@ final class CrawlJobRepositoryTest extends TestCase
             pagesIndexed: 2,
             imagesIndexed: 3,
             urlsRejected: 1,
+            videosIndexed: 4,
         );
 
         self::assertTrue($this->repository->markFromResult($id, $result));
@@ -77,6 +79,7 @@ final class CrawlJobRepositoryTest extends TestCase
         self::assertSame(5, $job->pagesDiscovered);
         self::assertSame(2, $job->pagesIndexed);
         self::assertSame(3, $job->imagesIndexed);
+        self::assertSame(4, $job->videosIndexed);
         self::assertSame(1, $job->urlsRejected);
         self::assertNull($job->errorMessage);
     }

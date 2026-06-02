@@ -15,6 +15,7 @@ final class CrawlResultTest extends TestCase
 
         self::assertFalse($result->successful);
         self::assertSame(1, $result->urlsRejected);
+        self::assertSame(0, $result->videosIndexed);
         self::assertSame(['private network'], $result->errors);
     }
 
@@ -23,6 +24,7 @@ final class CrawlResultTest extends TestCase
         $result = CrawlResult::failed('failed', 'partial output');
 
         self::assertFalse($result->successful);
+        self::assertSame(0, $result->videosIndexed);
         self::assertSame(['failed'], $result->errors);
         self::assertSame('partial output', $result->output);
     }

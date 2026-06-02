@@ -8,6 +8,8 @@ use Doogle\Search\ImageResult;
 use Doogle\Search\ImageSearchPage;
 use Doogle\Search\SearchPage;
 use Doogle\Search\SearchResult;
+use Doogle\Search\VideoResult;
+use Doogle\Search\VideoSearchPage;
 use PHPUnit\Framework\TestCase;
 
 final class SearchDtoTest extends TestCase
@@ -69,6 +71,59 @@ final class SearchDtoTest extends TestCase
         );
     }
 
+    public function testVideoResultCanBeCreatedFromRepositoryRow(): void
+    {
+        $result = VideoResult::fromRow([
+            'id' => '7',
+            'siteUrl' => 'https://example.com/page',
+            'videoUrl' => 'https://example.com/video.mp4',
+            'thumbnailUrl' => 'https://example.com/thumb.jpg',
+            'title' => 'Video title',
+            'description' => 'Video description',
+            'source' => 'video',
+            'clicks' => '12',
+        ]);
+
+        self::assertSame(7, $result->id);
+        self::assertSame('https://example.com/page', $result->siteUrl);
+        self::assertSame('https://example.com/video.mp4', $result->videoUrl);
+        self::assertSame('https://example.com/thumb.jpg', $result->thumbnailUrl);
+        self::assertSame('Video title', $result->title);
+        self::assertSame('Video description', $result->description);
+        self::assertSame('video', $result->source);
+        self::assertSame(12, $result->clicks);
+    }
+
+    public function testVideoResultDisplayTitleFallsBackToUrl(): void
+    {
+        self::assertSame(
+            'Title',
+            (new VideoResult(
+                1,
+                'https://example.com',
+                'https://example.com/video.mp4',
+                '',
+                'Title',
+                '',
+                'video',
+                0
+            ))->displayTitle()
+        );
+        self::assertSame(
+            'https://example.com/video.mp4',
+            (new VideoResult(
+                1,
+                'https://example.com',
+                'https://example.com/video.mp4',
+                '',
+                '',
+                '',
+                'video',
+                0
+            ))->displayTitle()
+        );
+    }
+
     public function testSearchPageCanRepresentEmptyResults(): void
     {
         $page = SearchPage::empty(1, 20);
@@ -87,5 +142,15 @@ final class SearchDtoTest extends TestCase
         self::assertSame(0, $page->total);
         self::assertSame(1, $page->page);
         self::assertSame(30, $page->pageSize);
+    }
+
+    public function testVideoSearchPageCanRepresentEmptyResults(): void
+    {
+        $page = VideoSearchPage::empty(1, 24);
+
+        self::assertSame([], $page->results);
+        self::assertSame(0, $page->total);
+        self::assertSame(1, $page->page);
+        self::assertSame(24, $page->pageSize);
     }
 }

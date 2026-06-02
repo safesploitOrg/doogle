@@ -30,6 +30,9 @@ final class CrawlService
     private array $alreadyFoundImages = [];
 
     /** @var list<string> */
+    private array $alreadyFoundVideos = [];
+
+    /** @var list<string> */
     private array $output = [];
 
     private int $pagesCrawled = 0;
@@ -77,6 +80,7 @@ final class CrawlService
             imagesIndexed: substr_count($output, '<b>src:</b>'),
             urlsRejected: substr_count($output, 'SKIPPED:'),
             output: $output,
+            videosIndexed: substr_count($output, '<b>video:</b>'),
         );
     }
 
@@ -85,6 +89,7 @@ final class CrawlService
         $this->alreadyCrawled = [];
         $this->alreadyParsed = [];
         $this->alreadyFoundImages = [];
+        $this->alreadyFoundVideos = [];
         $this->output = [];
         $this->pagesCrawled = 0;
 
@@ -212,6 +217,7 @@ final class CrawlService
         }
 
         $imageOutput = $this->indexImages($document, $url, $depth);
+        $videoOutput = $this->indexVideos($document, $url, $depth, $title, $description);
         $this->record(
             "<b>URL:</b> {$url}, <b>Title:</b> {$title}, "
             . "<b>Description:</b> {$description}, <b>keywords:</b> {$keywords}"
@@ -219,6 +225,10 @@ final class CrawlService
 
         if ($imageOutput !== '') {
             $this->record($imageOutput);
+        }
+
+        if ($videoOutput !== '') {
+            $this->record($videoOutput);
         }
 
         return true;
@@ -269,6 +279,162 @@ final class CrawlService
         return $imageOutput;
     }
 
+    private function indexVideos(
+        DOMDocument $document,
+        string $url,
+        int $depth,
+        string $pageTitle,
+        string $pageDescription,
+    ): string {
+        $videoOutput = '';
+        $thumbnailUrl = $this->normaliseOptionalUrl($this->firstMetaContent($document, [
+            'og:image',
+            'twitter:image',
+        ]), $url, $depth);
+        $metaTitle = $this->firstMetaContent($document, ['og:title', 'twitter:title']) ?: $pageTitle;
+        $metaDescription = $this->firstMetaContent(
+            $document,
+            ['og:description', 'twitter:description']
+        ) ?: $pageDescription;
+
+        foreach ($this->videoCandidates($document, $url, $thumbnailUrl, $metaTitle, $metaDescription) as $candidate) {
+            $videoUrl = $this->normaliseOptionalUrl($candidate['videoUrl'], $url, $depth);
+
+            if ($videoUrl === '') {
+                continue;
+            }
+
+            if (!in_array($videoUrl, $this->alreadyFoundVideos, true)) {
+                $this->alreadyFoundVideos[] = $videoUrl;
+                $title = $this->cleanText($candidate['title'] ?: $pageTitle);
+                $description = $this->cleanText($candidate['description'] ?: $pageDescription);
+                $source = $this->cleanText($candidate['source'] ?: $this->sourceFromUrl($videoUrl));
+
+                if ($this->videoExists($videoUrl)) {
+                    $this->record("{$videoUrl} already exists");
+                } elseif (
+                    $this->insertVideo($url, $videoUrl, $candidate['thumbnailUrl'], $title, $description, $source)
+                ) {
+                    $this->record("SUCCESS: {$videoUrl}");
+                } else {
+                    $this->record("ERROR: Failed to insert {$videoUrl}");
+                }
+            }
+
+            $videoOutput = "<b>video:</b> <a href={$videoUrl}>{$videoUrl}</a>, "
+                . "<b>title:</b> {$candidate['title']}, <b>url:</b> {$url}";
+        }
+
+        return $videoOutput;
+    }
+
+    /**
+     * @return list<array{videoUrl: string, thumbnailUrl: string, title: string, description: string, source: string}>
+     */
+    private function videoCandidates(
+        DOMDocument $document,
+        string $pageUrl,
+        string $thumbnailUrl,
+        string $pageTitle,
+        string $pageDescription,
+    ): array {
+        $candidates = [];
+
+        foreach (['og:video', 'og:video:url', 'og:video:secure_url', 'twitter:player'] as $name) {
+            $videoUrl = $this->firstMetaContent($document, [$name]);
+
+            if ($videoUrl !== '') {
+                $candidates[] = $this->videoCandidate($videoUrl, $thumbnailUrl, $pageTitle, $pageDescription, $name);
+            }
+        }
+
+        foreach ($document->getElementsByTagName('video') as $video) {
+            if (!$video instanceof DOMElement) {
+                continue;
+            }
+
+            $title = $video->getAttribute('title') ?: $video->getAttribute('aria-label') ?: $pageTitle;
+            $poster = $this->normaliseOptionalUrl($video->getAttribute('poster'), $pageUrl, 0) ?: $thumbnailUrl;
+
+            if ($video->getAttribute('src') !== '') {
+                $candidates[] = $this->videoCandidate(
+                    $video->getAttribute('src'),
+                    $poster,
+                    $title,
+                    $pageDescription,
+                    'video'
+                );
+            }
+
+            foreach ($video->getElementsByTagName('source') as $source) {
+                if ($source instanceof DOMElement && $source->getAttribute('src') !== '') {
+                    $candidates[] = $this->videoCandidate(
+                        $source->getAttribute('src'),
+                        $poster,
+                        $title,
+                        $pageDescription,
+                        'video'
+                    );
+                }
+            }
+        }
+
+        foreach ($document->getElementsByTagName('source') as $source) {
+            if (!$source instanceof DOMElement || $source->getAttribute('src') === '') {
+                continue;
+            }
+
+            if (str_starts_with(strtolower($source->getAttribute('type')), 'video/')) {
+                $candidates[] = $this->videoCandidate(
+                    $source->getAttribute('src'),
+                    $thumbnailUrl,
+                    $pageTitle,
+                    $pageDescription,
+                    'source'
+                );
+            }
+        }
+
+        foreach ($document->getElementsByTagName('iframe') as $iframe) {
+            if (!$iframe instanceof DOMElement || $iframe->getAttribute('src') === '') {
+                continue;
+            }
+
+            $src = $iframe->getAttribute('src');
+
+            if ($this->isVideoLikeUrl($this->createLink($src, $pageUrl))) {
+                $candidates[] = $this->videoCandidate(
+                    $src,
+                    $thumbnailUrl,
+                    $iframe->getAttribute('title') ?: $pageTitle,
+                    $pageDescription,
+                    'iframe'
+                );
+            }
+        }
+
+        return $candidates;
+    }
+
+    /**
+     * @return array{videoUrl: string, thumbnailUrl: string, title: string, description: string, source: string}
+     */
+    private function videoCandidate(
+        string $videoUrl,
+        string $thumbnailUrl,
+        string $title,
+        string $description,
+        string $source,
+    ): array {
+        return [
+            'videoUrl' => $videoUrl,
+            'thumbnailUrl' => $thumbnailUrl,
+            'title' => $this->cleanText($title),
+            'description' => $this->cleanText($description),
+            'source' => $this->cleanText($source),
+        ];
+    }
+
     private function loadDocument(string $url): DOMDocument
     {
         $document = new DOMDocument('1.0', 'utf-8');
@@ -315,6 +481,15 @@ final class CrawlService
         return $statement->fetchColumn() !== false;
     }
 
+    private function videoExists(string $videoUrl): bool
+    {
+        $statement = $this->pdo->prepare('SELECT 1 FROM videos WHERE videoUrl = :videoUrl LIMIT 1');
+        $statement->bindValue(':videoUrl', $videoUrl);
+        $statement->execute();
+
+        return $statement->fetchColumn() !== false;
+    }
+
     private function insertLink(string $url, string $title, string $description, string $keywords): bool
     {
         $statement = $this->pdo->prepare(
@@ -345,6 +520,29 @@ final class CrawlService
         ]);
     }
 
+    private function insertVideo(
+        string $siteUrl,
+        string $videoUrl,
+        string $thumbnailUrl,
+        string $title,
+        string $description,
+        string $source,
+    ): bool {
+        $statement = $this->pdo->prepare(
+            'INSERT INTO videos(siteUrl, videoUrl, thumbnailUrl, title, description, source)
+             VALUES(:siteUrl, :videoUrl, :thumbnailUrl, :title, :description, :source)'
+        );
+
+        return $statement->execute([
+            ':siteUrl' => $siteUrl,
+            ':videoUrl' => $videoUrl,
+            ':thumbnailUrl' => $thumbnailUrl,
+            ':title' => $title,
+            ':description' => $description,
+            ':source' => $source,
+        ]);
+    }
+
     private function createLink(string $src, string $url): string
     {
         return (new UrlNormalizer())->normalize($src, $url);
@@ -357,6 +555,71 @@ final class CrawlService
         return $href === ''
             || strpos($href, '#') !== false
             || stripos($href, 'javascript:') === 0;
+    }
+
+    /**
+     * @param list<string> $names
+     */
+    private function firstMetaContent(DOMDocument $document, array $names): string
+    {
+        foreach ($document->getElementsByTagName('meta') as $meta) {
+            if (!$meta instanceof DOMElement) {
+                continue;
+            }
+
+            $name = strtolower($meta->getAttribute('property') ?: $meta->getAttribute('name'));
+
+            if (in_array($name, array_map('strtolower', $names), true)) {
+                return trim($meta->getAttribute('content'));
+            }
+        }
+
+        return '';
+    }
+
+    private function normaliseOptionalUrl(string $value, string $pageUrl, int $depth): string
+    {
+        $value = trim($value);
+
+        if ($value === '') {
+            return '';
+        }
+
+        $normalised = $this->createLink($value, $pageUrl);
+
+        return $this->validator->rejectionReason($normalised, $depth) === null ? $normalised : '';
+    }
+
+    private function isVideoLikeUrl(string $url): bool
+    {
+        $host = strtolower((string) (parse_url($url, PHP_URL_HOST) ?: ''));
+        $path = strtolower((string) (parse_url($url, PHP_URL_PATH) ?: ''));
+
+        if (preg_match('/\.(mp4|webm|ogv|ogg|mov|m4v|m3u8)$/', $path) === 1) {
+            return true;
+        }
+
+        foreach (
+            ['youtube.com', 'youtu.be', 'vimeo.com', 'dailymotion.com', 'twitch.tv', 'streamable.com'] as $videoHost
+        ) {
+            if ($host === $videoHost || str_ends_with($host, '.' . $videoHost)) {
+                return true;
+            }
+        }
+
+        return str_contains($host, 'video') || str_contains($path, '/embed/');
+    }
+
+    private function sourceFromUrl(string $url): string
+    {
+        $host = (string) (parse_url($url, PHP_URL_HOST) ?: '');
+
+        return $host !== '' ? $host : 'video';
+    }
+
+    private function cleanText(string $value): string
+    {
+        return str_replace(["\n", "\r", "\t"], ' ', trim($value));
     }
 
     /**

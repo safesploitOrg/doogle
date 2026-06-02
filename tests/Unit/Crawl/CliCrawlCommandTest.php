@@ -71,6 +71,7 @@ final class CliCrawlCommandTest extends TestCase
         self::assertSame('', $stderr);
         self::assertStringContainsString('Crawl completed.', $stdout);
         self::assertStringContainsString('Pages indexed: 1', $stdout);
+        self::assertStringContainsString('Videos indexed: 0', $stdout);
         self::assertStringContainsString('URL: https://example.com/', $stdout);
     }
 
@@ -224,6 +225,7 @@ final class CliCrawlCommandTest extends TestCase
                 pages_discovered INTEGER NOT NULL DEFAULT 0,
                 pages_indexed INTEGER NOT NULL DEFAULT 0,
                 images_indexed INTEGER NOT NULL DEFAULT 0,
+                videos_indexed INTEGER NOT NULL DEFAULT 0,
                 urls_rejected INTEGER NOT NULL DEFAULT 0,
                 error_message TEXT NULL,
                 created_at TEXT DEFAULT CURRENT_TIMESTAMP,

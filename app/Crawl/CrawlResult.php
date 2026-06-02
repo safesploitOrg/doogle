@@ -17,6 +17,7 @@ final readonly class CrawlResult
         public int $urlsRejected,
         public array $errors = [],
         public string $output = '',
+        public int $videosIndexed = 0,
     ) {
     }
 

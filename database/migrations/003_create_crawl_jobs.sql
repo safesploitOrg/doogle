@@ -8,6 +8,7 @@ CREATE TABLE IF NOT EXISTS `crawl_jobs` (
   `pages_discovered` int(11) NOT NULL DEFAULT '0',
   `pages_indexed` int(11) NOT NULL DEFAULT '0',
   `images_indexed` int(11) NOT NULL DEFAULT '0',
+  `videos_indexed` int(11) NOT NULL DEFAULT '0',
   `urls_rejected` int(11) NOT NULL DEFAULT '0',
   `error_message` text DEFAULT NULL,
   `created_at` timestamp DEFAULT CURRENT_TIMESTAMP,

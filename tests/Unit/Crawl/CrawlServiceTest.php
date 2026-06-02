@@ -29,7 +29,7 @@ final class CrawlServiceTest extends TestCase
         $this->pdo = new PDO('sqlite::memory:');
     }
 
-    public function testDefaultCrawlerIndexesLinkedPagesAndImagesWithoutExternalHttp(): void
+    public function testDefaultCrawlerIndexesLinkedPagesImagesAndVideosWithoutExternalHttp(): void
     {
         $this->createCrawlerTables();
         $policy = new CrawlerSecurityPolicy(allowPrivateNetworks: true);
@@ -43,7 +43,12 @@ final class CrawlServiceTest extends TestCase
                 . '<title>Example Page</title>'
                 . '<meta name="description" content="Example description">'
                 . '<meta name="keywords" content="example, page">'
-                . '</head><body><img src="/image.png" alt="Example image"></body></html>',
+                . '<meta property="og:image" content="/video-thumb.jpg">'
+                . '</head><body>'
+                . '<img src="/image.png" alt="Example image">'
+                . '<video title="Example video" poster="/video-thumb.jpg">'
+                . '<source src="/video.mp4" type="video/mp4"></video>'
+                . '</body></html>',
         ];
 
         $service = new CrawlService(
@@ -59,10 +64,13 @@ final class CrawlServiceTest extends TestCase
         self::assertTrue($result->successful);
         self::assertSame(1, $result->pagesIndexed);
         self::assertSame(1, $result->imagesIndexed);
+        self::assertSame(1, $result->videosIndexed);
         self::assertSame(1, (int) $this->pdo->query('SELECT COUNT(*) FROM sites')->fetchColumn());
         self::assertSame(1, (int) $this->pdo->query('SELECT COUNT(*) FROM images')->fetchColumn());
+        self::assertSame(1, (int) $this->pdo->query('SELECT COUNT(*) FROM videos')->fetchColumn());
         self::assertStringContainsString('<b>URL:</b> https://example.com/page', $result->output);
         self::assertStringContainsString('<b>src:</b>', $result->output);
+        self::assertStringContainsString('<b>video:</b>', $result->output);
     }
 
     public function testRejectsUnsafeStartUrlBeforeRunningCrawler(): void
@@ -149,6 +157,18 @@ final class CrawlServiceTest extends TestCase
                 title VARCHAR(512) NOT NULL,
                 clicks INTEGER NOT NULL DEFAULT 0,
                 broken INTEGER NOT NULL DEFAULT 0
+            )'
+        );
+        $this->pdo->exec(
+            'CREATE TABLE videos (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                siteUrl VARCHAR(512) NOT NULL,
+                videoUrl VARCHAR(512) NOT NULL,
+                thumbnailUrl VARCHAR(512) NOT NULL DEFAULT "",
+                title VARCHAR(512) NOT NULL DEFAULT "",
+                description VARCHAR(512) NOT NULL DEFAULT "",
+                source VARCHAR(100) NOT NULL DEFAULT "",
+                clicks INTEGER NOT NULL DEFAULT 0
             )'
         );
     }

@@ -19,6 +19,7 @@ final class CrawlJobTest extends TestCase
             'pages_discovered' => '7',
             'pages_indexed' => '3',
             'images_indexed' => '4',
+            'videos_indexed' => '2',
             'urls_rejected' => '1',
             'error_message' => null,
             'created_at' => '2026-06-01 10:00:00',
@@ -32,6 +33,7 @@ final class CrawlJobTest extends TestCase
         self::assertSame(7, $job->pagesDiscovered);
         self::assertSame(3, $job->pagesIndexed);
         self::assertSame(4, $job->imagesIndexed);
+        self::assertSame(2, $job->videosIndexed);
         self::assertSame(1, $job->urlsRejected);
         self::assertNull($job->errorMessage);
         self::assertSame('2026-06-01 10:00:00', $job->createdAt);

@@ -347,9 +347,118 @@ Image styling
 	white-space: nowrap;
 }
 
-.gridItem:hover .details 
+.gridItem:hover .details
 {
 	visibility: visible;
+}
+
+/**************
+Video styling
+**************/
+.mainResultsSection .videoResults
+{
+	display: grid;
+	grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
+	gap: 22px;
+	margin: 20px 32px 32px 150px;
+	max-width: 1200px;
+}
+
+.videoCard
+{
+	display: flex;
+	flex-direction: column;
+	min-width: 0;
+}
+
+.videoCard a
+{
+	text-decoration: none;
+}
+
+.videoThumbnail
+{
+	position: relative;
+	aspect-ratio: 16 / 9;
+	background: #111;
+	border-radius: 6px;
+	overflow: hidden;
+}
+
+.videoThumbnail img
+{
+	width: 100%;
+	height: 100%;
+	object-fit: cover;
+	display: block;
+}
+
+.videoPlaceholder
+{
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	width: 100%;
+	height: 100%;
+	color: #fff;
+	background: #2b2b2b;
+	font-size: 14px;
+}
+
+.videoPlay
+{
+	position: absolute;
+	left: 12px;
+	bottom: 10px;
+	width: 34px;
+	height: 34px;
+	border-radius: 50%;
+	background: rgba(0,0,0,0.72);
+}
+
+.videoPlay::after
+{
+	content: "";
+	position: absolute;
+	left: 13px;
+	top: 9px;
+	border-top: 8px solid transparent;
+	border-bottom: 8px solid transparent;
+	border-left: 12px solid #fff;
+}
+
+.videoCard h3
+{
+	margin: 10px 0 4px 0;
+	color: #1a0dab;
+	font-size: 16px;
+	font-weight: normal;
+	line-height: 1.3;
+}
+
+.videoCard h3:hover
+{
+	text-decoration: underline;
+}
+
+.videoSource
+{
+	color: #006621;
+	font-size: 13px;
+}
+
+.videoSite
+{
+	color: #006621;
+	font-size: 12px;
+	overflow-wrap: anywhere;
+}
+
+.videoCard p
+{
+	margin: 6px 0 0 0;
+	font-size: 12px;
+	line-height: 1.35;
 }
 
 /*********
@@ -370,30 +479,32 @@ Crawl form
 /*
 Mobile responsive design -- Overrides
 */
-@media only screen and (max-width: 700px) 
+@media only screen and (max-width: 700px)
 {
-	.resultContainer .url 
+	.resultContainer .url
 	{
 		color: #006621;
 		font-size: 19px;
 	}
 
-	.tabsContainer 
+	.tabsContainer
 	{
-		 text-align: center;
+		text-align: center;
 	}
 
-	.mainResultsSection .resultsCount 
-	{
-		margin-left: 15px;
-	}
-
-	.mainResultsSection .siteResults 
+	.mainResultsSection .siteResults
 	{
 		margin-left: 15px;
 	}
 
-	.mainResultsSection .resultsCount 
+	.mainResultsSection .videoResults
+	{
+		margin-left: 15px;
+		margin-right: 15px;
+		grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
+	}
+
+	.mainResultsSection .resultsCount
 	{
 		margin-left: 15px;
 	}

@@ -21,6 +21,7 @@ Completed from `ARCHITECTURE2.md`:
 - Phase E: CLI Crawl
 - Phase F: Legacy Removal
 - Phase G: Crawl Jobs / History
+- Phase I: Videos Search Vertical
 
 Remaining:
 
@@ -32,10 +33,11 @@ Key changes now in place:
 - Runtime web files live under `public/`; Docker serves `/var/www/html/public`.
 - `app/` contains auth, crawl, database, repository, search, and security classes.
 - Legacy root `crawl.php`, root `crawl-manual.php`, and `classes/` have been removed.
-- Search uses repositories, services, DTOs, full-text indexes, relevance ranking, and bounded click boost.
+- Search uses repositories, services, DTOs, full-text indexes, relevance ranking, and bounded click boost for sites, images, and videos.
 - Browser crawling requires an admin login and CSRF token.
 - CLI crawling does not require a browser session, but still enforces crawler safety policy.
 - Web and CLI crawl jobs are stored in `crawl_jobs` and shown on the authenticated crawl page.
+- Crawling indexes page metadata, images, and video references/embeds when safe URLs are discovered.
 
 ## Quick Start With Docker
 
@@ -121,10 +123,12 @@ Public search is available without login:
 http://localhost:8000/
 http://localhost:8000/search.php?term=example&type=sites
 http://localhost:8000/search.php?term=example&type=images
+http://localhost:8000/search.php?term=example&type=videos
 ```
 
 Site search returns 20 results per page. Image search returns 30 results per
-page.
+page. Video search returns 24 results per page in a responsive thumbnail-card
+grid.
 
 ## Crawling: Web UI
 
@@ -147,6 +151,12 @@ history.
 
 The crawl result and recent crawl history are shown on the same page. Web and
 CLI crawl history is stored in `crawl_jobs`.
+
+Crawling stores site results in `sites`, image results in `images`, and video
+results in `videos`. Video extraction currently covers common page metadata,
+`<video>`/`<source>` elements, direct video URLs, and known embedded video
+players. The same URL validation and private-network blocking applies before a
+video URL is stored.
 
 ## Crawling: CLI
 
@@ -202,12 +212,14 @@ Existing databases may need migrations:
 database/migrations/001_add_search_fulltext_indexes.sql
 database/migrations/002_update_users_auth_schema.sql
 database/migrations/003_create_crawl_jobs.sql
+database/migrations/004_add_video_search.sql
 ```
 
 Apply a migration to the Docker database:
 
 ```sh
 docker compose -f docker/compose.yml exec -T mysql_db mysql -uroot -proot doogle < database/migrations/003_create_crawl_jobs.sql
+docker compose -f docker/compose.yml exec -T mysql_db mysql -uroot -proot doogle < database/migrations/004_add_video_search.sql
 ```
 
 For non-Docker MySQL, apply the same SQL files with your normal MySQL client.
@@ -308,8 +320,8 @@ If you already have an older Docker volume or database:
 - run the migrations above, or
 - reset the local Docker database with `./docker/reset-db.sh --force`.
 
-Resetting the Docker database deletes local indexed sites, images, users, and
-crawl history.
+Resetting the Docker database deletes local indexed sites, images, videos,
+users, and crawl history.
 
 ## Security Defaults
 

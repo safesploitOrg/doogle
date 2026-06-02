@@ -109,6 +109,7 @@ final class CliCrawlCommand
         $this->writeLine($stdout, 'Pages discovered: ' . $result->pagesDiscovered);
         $this->writeLine($stdout, 'Pages indexed: ' . $result->pagesIndexed);
         $this->writeLine($stdout, 'Images indexed: ' . $result->imagesIndexed);
+        $this->writeLine($stdout, 'Videos indexed: ' . $result->videosIndexed);
         $this->writeLine($stdout, 'URLs rejected: ' . $result->urlsRejected);
 
         $output = self::plainTextOutput($result->output);
