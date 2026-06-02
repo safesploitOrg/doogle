@@ -35,7 +35,10 @@ jobs:
       - name: Install dependencies
         run: composer install --no-interaction --prefer-dist
 
-      - name: Run tests
+      - name: Run Composer audit
+        run: composer audit
+
+      - name: Run PHP unit tests
         run: composer test
 
       - name: Run static analysis
@@ -44,6 +47,9 @@ jobs:
       - name: Run code style
         run: composer lint
 
+        #===========================================
+        # SBOM generation and upload
+        # ===========================================
       - name: Generate SBOM
         run: composer sbom
 
@@ -57,50 +63,13 @@ jobs:
           path: build/sbom.cdx.json
           if-no-files-found: error
 
-  # The following jobs are currently disabled. Need to investigate and fix issues with CodeQL and Trivy before re-enabling.
-  # Run github/codeql-action/init@v3
-# Warning: CodeQL Action v3 will be deprecated in December 2026. Please update all occurrences of the CodeQL Action in your workflow files to v4. For more information, see https://github.blog/changelog/2025-10-28-upcoming-deprecation-of-codeql-action-v3/
-# Job run UUID is fae10160-17b5-4d78-a7c0-19b1eb77a9f8.
-# Setup CodeQL tools
-# Validating workflow
-# Load language configuration
-# Error: Did not recognize the following languages: php
-# CodeQL Doesn't currently support PHP. For more information, https://codeql.github.com/docs/codeql-overview/supported-languages-and-frameworks/
-# 
-# You already have PHPStan and PHPCS in the main test job, so you are fine.
-# CodeQL can still analyse GitHub Actions workflows, but that is optional:
-# languages: actions
-# 
+  # CodeQL is not enabled because CodeQL does not currently support PHP.
+  # Doogle uses PHPStan, PHPCS, Composer audit, Gitleaks, Trivy, and SBOM generation instead.
+  # 
   # codeql:
-  #   runs-on: ubuntu-latest
-  #   permissions:
-  #     contents: read
-  #     security-events: write
-
-  #   steps:
-  #     - name: Checkout
-  #       uses: actions/checkout@v5
-
-  #     - name: Initialize CodeQL
-  #       uses: github/codeql-action/init@v3
-  #       with:
-  #         languages: php
-
-  #     - name: Run CodeQL analysis
-  #       uses: github/codeql-action/analyze@v3
 
 
   # Run gitleaks and Trivy
-  # Current runner version: '2.334.0'
-# Runner Image Provisioner
-# Operating System
-# Runner Image
-# GITHUB_TOKEN Permissions
-# Secret source: Actions
-# Prepare workflow directory
-# Prepare all required actions
-# Getting action download info
-# Error: Unable to resolve action `aquasecurity/trivy-action@0.28.0`, unable to find version `0.28.0`
   security:
     runs-on: ubuntu-latest
     permissions:
@@ -113,7 +82,12 @@ jobs:
         with:
           fetch-depth: 0
 
-      # GitHub organisation, and the official gitleaks/gitleaks-action@v3 now requires a GITLEAKS_LICENSE secret for organisation-owned repos.
+      # ==============================================================
+      # Gitleaks secrets detection, upload results as SARIF for GitHub code scanning alerts
+      # 
+      # GitHub organisation, and the official gitleaks/gitleaks-action@v3 
+      # now requires a GITLEAKS_LICENSE secret for organisation-owned repos.
+      # ==============================================================
       - name: Install Gitleaks
         run: |
           GITLEAKS_VERSION="8.30.1"
@@ -136,6 +110,10 @@ jobs:
       #   env:
       #     GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
+      # ============================================================
+      # Trivy filesystem scan for vulnerabilities in dependencies
+      # and upload results as SARIF for GitHub code scanning alerts
+      # ============================================================
       - name: Run Trivy filesystem scan
         uses: aquasecurity/trivy-action@v0.36.0
         with:
@@ -146,8 +124,23 @@ jobs:
           severity: CRITICAL,HIGH
           ignore-unfixed: true
           exit-code: '0'
+          # exit-code: '1' # Exit with code 1 if vulnerabilities are found, but continue to upload results
 
       - name: Upload Trivy SARIF
         uses: github/codeql-action/upload-sarif@v4
         with:
           sarif_file: trivy-results.sarif
+
+
+  # Docker-based integration tests are currently disabled
+  # docker:
+  #   runs-on: ubuntu-latest
+
+  #   steps:
+  #     - uses: actions/checkout@v5
+
+  #     - name: Build Docker runtime
+  #       run: ./docker/build.sh
+
+  #     - name: Run Docker tests
+  #       run: ./docker/up.sh
