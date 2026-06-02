@@ -116,14 +116,18 @@ The next target layout is:
 │   └── Security/
 │       ├── CrawlerSecurityPolicy.php
 │       ├── CsrfToken.php
-│       └── PrivateNetworkBlocker.php
+│       ├── PrivateNetworkBlocker.php
+│       ├── RateLimitDecision.php
+│       ├── RateLimiter.php
+│       ├── SecurityEventLogger.php
+│       └── SessionCookiePolicy.php
 ├── bin/
 │   ├── crawl
 │   └── create-admin
 ├── database/
 │   └── migrations/
 ├── docker/
-│   ├── apache/
+│   ├── nginx/
 │   ├── php/
 │   ├── compose.yml
 │   ├── crawl.sh
@@ -215,29 +219,18 @@ ARCHITECTURE.md
 ARCHITECTURE2.md
 ```
 
-### 5.4 Apache Target
+### 5.4 Web Server Target
 
-Example Apache configuration:
+Docker should use Nginx in front of PHP-FPM:
 
-```apache
-DocumentRoot /var/www/html/public
-
-<Directory /var/www/html/public>
-    Options -Indexes +FollowSymLinks
-    AllowOverride All
-    Require all granted
-</Directory>
+```text
+Nginx public root: /var/www/html/public
+PHP-FPM app root: /var/www/html
+FastCGI upstream: app:9000
 ```
 
-Optional hardening:
-
-```apache
-<FilesMatch "^(\.env|composer\.(json|lock)|phpunit\.xml|phpstan\.neon)$">
-    Require all denied
-</FilesMatch>
-```
-
-The main protection should still be the `public/` document root.
+Nginx must deny direct access to internal files and add baseline security
+headers. The main protection should still be the `public/` document root.
 
 ---
 
@@ -863,13 +856,18 @@ composer sbom
 
 ## 17. Docker Runtime Updates
 
-### 17.1 Public Root
+### 17.1 Split Runtime
 
-Docker Apache config should serve:
+Docker should run a split local runtime:
 
 ```text
-/var/www/html/public
+web       nginx:1.27-alpine, serves /var/www/html/public
+app       php:8.3-fpm, runs Composer, PHP-FPM, and trusted CLI commands
+mysql_db  mariadb:11.4, stores Doogle data
 ```
+
+The `app` container should run as a non-root PHP user. Nginx should be the only
+container exposing the public HTTP port.
 
 ### 17.2 CLI Crawl Wrapper
 
@@ -1141,6 +1139,7 @@ Goal: prepare deployable runtime.
 
 Tasks:
 
+- migrate Docker runtime from `php:8.3-apache` to a production-style split runtime: Nginx + PHP-FPM + MariaDB
 - non-root container user
 - security headers
 - session cookie hardening
@@ -1151,6 +1150,11 @@ Tasks:
 
 Acceptance criteria:
 
+- Docker serves public traffic through Nginx and PHP-FPM
+- MariaDB replaces the MySQL Docker image
+- PHP container runs as a non-root user
+- auth/crawl rate limits are enforced
+- auth/crawl security events are logged
 - secure defaults documented
 - CI checks pass
 - production risks documented
@@ -1189,6 +1193,9 @@ Acceptance criteria:
 - Regenerate session ID on login.
 - Use CSRF protection for state-changing web actions.
 - Keep crawler security policy enabled by default.
+- Apply baseline security headers at Nginx.
+- Rate limit login and crawl POST requests.
+- Log auth, crawl, CSRF, and rate-limit events without secrets.
 
 ### 20.2 Session Cookie Settings
 
@@ -1204,7 +1211,34 @@ session_set_cookie_params([
 
 For local HTTP development, `secure` may need to be false.
 
-### 20.3 Crawler Abuse Controls
+### 20.3 Security Headers
+
+Nginx should set at least:
+
+- `X-Frame-Options`
+- `X-Content-Type-Options`
+- `Referrer-Policy`
+- `Permissions-Policy`
+- `Content-Security-Policy`
+
+HSTS should be enabled at the HTTPS-terminating proxy or load balancer, not in
+the local plain-HTTP Docker runtime.
+
+### 20.4 Rate Limiting And Event Logging
+
+Defaults:
+
+```env
+DOOGLE_LOGIN_RATE_LIMIT_ATTEMPTS=10
+DOOGLE_LOGIN_RATE_LIMIT_WINDOW=60
+DOOGLE_CRAWL_RATE_LIMIT_ATTEMPTS=5
+DOOGLE_CRAWL_RATE_LIMIT_WINDOW=60
+DOOGLE_SECURITY_LOG=/var/log/doogle/security.log
+```
+
+Do not log passwords, session IDs, CSRF tokens, or database credentials.
+
+### 20.5 Crawler Abuse Controls
 
 - max crawl depth
 - max pages
@@ -1278,6 +1312,8 @@ Doogle
   +-- CSRF-protected crawl requests
   +-- safe bounded crawler
   +-- public/ web root isolation
+  +-- Nginx + PHP-FPM + MariaDB Docker runtime
+  +-- baseline headers, rate limiting, and security event logging
   +-- modern app/ architecture
   +-- Docker local runtime
   +-- CI quality gates

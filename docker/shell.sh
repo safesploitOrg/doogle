@@ -2,6 +2,6 @@
 set -eu
 
 SCRIPT_DIR=$(CDPATH= cd -- "$(dirname -- "$0")" && pwd)
-COMPOSE_FILE="$SCRIPT_DIR/compose.yml"
+. "$SCRIPT_DIR/lib/compose.sh"
 
-docker compose -f "$COMPOSE_FILE" exec app bash
+docker_compose exec app bash

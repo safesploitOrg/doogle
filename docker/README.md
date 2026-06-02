@@ -1,7 +1,13 @@
 # Doogle Docker Development
 
-This Docker stack serves the application from `public/` while mounting the full
-repository at `/var/www/html` for Composer, tests, and internal code.
+This Docker stack uses Nginx, PHP-FPM, and MariaDB. Nginx serves only
+`public/`, while the PHP-FPM app container mounts the full repository at
+`/var/www/html` for Composer, tests, CLI commands, and internal code.
+
+The Docker helper scripts load the repository-level `.env` file when it exists,
+even when the script is run from inside the `docker/` directory.
+For manual `docker compose` commands, pass `--env-file ../.env` from inside the
+`docker/` directory or `--env-file .env` from the repository root.
 
 ## Build
 
@@ -39,18 +45,19 @@ Open:
 - Doogle: http://localhost:8000
 - phpMyAdmin: http://localhost:8081
 
-Default development credentials:
+Default development credentials without a `.env` override:
 
 - Database: `doogle`
 - User: `doogle`
 - Password: `doogle`
 - Root password: `root`
 
-MySQL is exposed on host port `3307` by default to avoid clashing with a local
-MySQL install. Override ports or passwords with shell environment variables:
+MariaDB is exposed on host port `3307` by default to avoid clashing with a
+local database install. Override ports or passwords with shell environment
+variables:
 
 ```sh
-DOOGLE_APP_PORT=8080 DOOGLE_DB_PASSWORD=change-me ./docker/up.sh
+DOOGLE_APP_PORT=8080 DB_PASSWORD=change-me DB_ROOT_PASSWORD=change-root ./docker/up.sh
 ```
 
 ---
@@ -73,9 +80,21 @@ The command still uses the same crawler URL validation and private-network
 blocking policy as the authenticated web crawl form.
 
 The authenticated crawl page records crawl history in `crawl_jobs`. Existing
-Docker volumes created before that table existed need either the
-`database/migrations/003_create_crawl_jobs.sql` migration applied or a local
-database reset.
+Docker volumes created before crawl jobs or videos existed need the migrations
+under `database/migrations/` applied or a local database reset.
+
+The MariaDB migration uses a new `mariadb_data` volume. If you previously used
+the old MySQL volume, reset local Docker data before testing the split runtime.
+
+## Security Defaults
+
+- Nginx adds baseline security headers.
+- PHP-FPM runs as the non-root `www-data` user.
+- Session cookies are HTTP-only, SameSite `Lax`, and can be made secure with
+  `SESSION_COOKIE_SECURE=true` when HTTPS is terminated in front of the app.
+- Login and crawl POST requests are rate limited by default.
+- Auth and crawl security events are written to `/var/log/doogle/security.log`
+  inside the app container.
 
 ## Stop
 
@@ -83,7 +102,7 @@ database reset.
 ./docker/down.sh
 ```
 
-To remove the MySQL volume and re-run schema bootstrap:
+To remove the MariaDB volume and re-run schema bootstrap:
 
 ```sh
 ./docker/reset-db.sh --force

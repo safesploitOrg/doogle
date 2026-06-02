@@ -1,17 +1,20 @@
 <?php
 declare(strict_types=1);
 
+use Doogle\Auth\SessionAuth;
 use Doogle\Crawl\CrawlRequest;
 use Doogle\Crawl\CrawlService;
 use Doogle\Crawl\UrlValidator;
 use Doogle\Repository\CrawlJobRepository;
 use Doogle\Security\CrawlerSecurityPolicy;
 use Doogle\Security\CsrfToken;
+use Doogle\Security\RateLimiter;
+use Doogle\Security\SecurityEventLogger;
 
 require_once __DIR__ . '/../vendor/autoload.php';
 include(__DIR__ . '/../config.php');
 
-$sessionAuth = new \Doogle\Auth\SessionAuth();
+$sessionAuth = new SessionAuth();
 $sessionAuth->start();
 
 if (!$sessionAuth->isAdmin()) {
@@ -20,6 +23,8 @@ if (!$sessionAuth->isAdmin()) {
 }
 
 $currentUser = $sessionAuth->user();
+$logger = SecurityEventLogger::fromEnvironment();
+$rateLimiter = RateLimiter::fromEnvironment('crawl');
 $csrf = new CsrfToken($_SESSION);
 $policy = CrawlerSecurityPolicy::fromEnvironment();
 $validator = new UrlValidator($policy);
@@ -33,9 +38,23 @@ $crawlHistory = [];
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 	$submittedUrl = trim((string) ($_POST['url'] ?? ''));
 	$token = isset($_POST['csrf_token']) ? (string) $_POST['csrf_token'] : null;
+	$decision = $rateLimiter->attempt('crawl', crawlRateLimitIdentity($currentUser?->id));
 
-	if (!$csrf->verify($token)) {
+	if (!$decision->allowed) {
+		http_response_code(429);
+		header('Retry-After: ' . $decision->retryAfterSeconds);
+		$error = 'Too many crawl requests. Try again shortly.';
+		$logger->log('crawl.rate_limited', [
+			'user_id' => $currentUser?->id,
+			'remote_addr' => requestIp(),
+			'retry_after_seconds' => $decision->retryAfterSeconds,
+		]);
+	} elseif (!$csrf->verify($token)) {
 		$error = 'Invalid request token.';
+		$logger->log('crawl.csrf_failed', [
+			'user_id' => $currentUser?->id,
+			'remote_addr' => requestIp(),
+		]);
 	} else {
 		$csrf->regenerate();
 		$jobId = null;
@@ -45,16 +64,38 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 			$crawlJobs->markRunning($jobId);
 		} catch (Throwable $throwable) {
 			$historyError = 'Crawl history unavailable. Run the crawl_jobs migration.';
+			$logger->log('crawl.history_unavailable', [
+				'user_id' => $currentUser?->id,
+				'remote_addr' => requestIp(),
+			]);
 		}
 
+		$logger->log('crawl.requested', [
+			'user_id' => $currentUser?->id,
+			'remote_addr' => requestIp(),
+			'url' => $submittedUrl,
+		]);
 		$request = CrawlRequest::fromPolicy($submittedUrl, $policy);
 		$result = (new CrawlService($con, $policy, $validator))->crawl($request);
+		$logger->log($result->successful ? 'crawl.completed' : 'crawl.failed', [
+			'user_id' => $currentUser?->id,
+			'remote_addr' => requestIp(),
+			'url' => $submittedUrl,
+			'pages_indexed' => $result->pagesIndexed,
+			'images_indexed' => $result->imagesIndexed,
+			'videos_indexed' => $result->videosIndexed,
+			'urls_rejected' => $result->urlsRejected,
+		]);
 
 		if ($jobId !== null) {
 			try {
 				$crawlJobs->markFromResult($jobId, $result);
 			} catch (Throwable $throwable) {
 				$historyError = 'Crawl history could not be updated.';
+				$logger->log('crawl.history_update_failed', [
+					'user_id' => $currentUser?->id,
+					'remote_addr' => requestIp(),
+				]);
 			}
 		}
 	}
@@ -82,6 +123,16 @@ function statusLabel(string $status): string
 {
 	return ucfirst($status);
 }
+
+function requestIp(): string
+{
+	return (string) ($_SERVER['REMOTE_ADDR'] ?? 'unknown');
+}
+
+function crawlRateLimitIdentity(?int $userId): string
+{
+	return $userId !== null ? 'user:' . $userId : 'ip:' . requestIp();
+}
 ?>
 
 <!DOCTYPE html>
@@ -89,7 +140,7 @@ function statusLabel(string $status): string
 <head>
 	<title>doogleBot Crawler</title>
 	<meta charset="utf-8">
-	<meta name="description" content="Search the web for sites and images.">
+	<meta name="description" content="Search the web for sites, images, and videos.">
 	<meta name="keywords" content="Search engine, doogle, websites">
 	<meta name="author" content="Zepher Ashe">
 	<meta name="viewport" content="width=device-width, initial-scale=1.0">

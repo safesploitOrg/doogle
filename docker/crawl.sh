@@ -2,11 +2,11 @@
 set -eu
 
 SCRIPT_DIR=$(CDPATH= cd -- "$(dirname -- "$0")" && pwd)
-COMPOSE_FILE="$SCRIPT_DIR/compose.yml"
+. "$SCRIPT_DIR/lib/compose.sh"
 
 if [ "$#" -lt 1 ]; then
     printf 'Usage: %s https://example.com\n' "$0"
     exit 1
 fi
 
-docker compose -f "$COMPOSE_FILE" exec -T app php bin/crawl "$@"
+docker_compose exec -T app php bin/crawl "$@"

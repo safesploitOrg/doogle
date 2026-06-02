@@ -9,6 +9,7 @@ use Doogle\Crawl\UrlValidator;
 use Doogle\Database\ConnectionFactory;
 use Doogle\Repository\CrawlJobRepository;
 use Doogle\Security\CrawlerSecurityPolicy;
+use Doogle\Security\SecurityEventLogger;
 
 require_once dirname(__DIR__) . '/vendor/autoload.php';
 
@@ -31,7 +32,8 @@ $command = new CliCrawlCommand(
     null,
     static function () use ($connectionFactory): CrawlJobRepository {
         return new CrawlJobRepository($connectionFactory->create());
-    }
+    },
+    SecurityEventLogger::fromEnvironment(),
 );
 
 exit($command->run($argv));

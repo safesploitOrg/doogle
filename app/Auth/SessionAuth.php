@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace Doogle\Auth;
 
+use Doogle\Security\SessionCookiePolicy;
+
 final class SessionAuth
 {
     /** @var array<string, mixed> */
@@ -13,7 +15,7 @@ final class SessionAuth
     /**
      * @param array<string, mixed>|null $session
      */
-    public function __construct(?array &$session = null)
+    public function __construct(?array &$session = null, private readonly ?SessionCookiePolicy $cookiePolicy = null)
     {
         if ($session === null) {
             if (!isset($_SESSION) || !is_array($_SESSION)) {
@@ -37,6 +39,7 @@ final class SessionAuth
         }
 
         if (session_status() === PHP_SESSION_NONE) {
+            ($this->cookiePolicy ?? SessionCookiePolicy::fromEnvironment())->apply();
             session_start();
         }
 
@@ -86,7 +89,29 @@ final class SessionAuth
         unset($this->session['user']);
 
         if ($this->usesNativeSession && session_status() === PHP_SESSION_ACTIVE) {
+            $this->clearNativeCookie();
             session_destroy();
         }
+    }
+
+    private function clearNativeCookie(): void
+    {
+        if (headers_sent()) {
+            return;
+        }
+
+        $params = session_get_cookie_params();
+        setcookie(
+            session_name(),
+            '',
+            [
+                'expires' => time() - 42000,
+                'path' => (string) ($params['path'] ?? '/'),
+                'domain' => (string) ($params['domain'] ?? ''),
+                'secure' => (bool) ($params['secure'] ?? false),
+                'httponly' => (bool) ($params['httponly'] ?? true),
+                'samesite' => (string) ($params['samesite'] ?? 'Lax'),
+            ],
+        );
     }
 }

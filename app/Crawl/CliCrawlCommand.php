@@ -7,6 +7,7 @@ namespace Doogle\Crawl;
 use Closure;
 use Doogle\Repository\CrawlJobRepository;
 use Doogle\Security\CrawlerSecurityPolicy;
+use Doogle\Security\SecurityEventLogger;
 use Throwable;
 
 final class CliCrawlCommand
@@ -33,6 +34,7 @@ final class CliCrawlCommand
         callable $crawlServiceFactory,
         ?UrlValidator $validator = null,
         ?callable $crawlJobRepositoryFactory = null,
+        private readonly ?SecurityEventLogger $logger = null,
     ) {
         $this->crawlServiceFactory = Closure::fromCallable($crawlServiceFactory);
         $this->crawlJobRepositoryFactory = $crawlJobRepositoryFactory !== null
@@ -71,6 +73,7 @@ final class CliCrawlCommand
                 $jobRepository->markRunning($jobId);
             } catch (Throwable $throwable) {
                 $this->writeLine($stderr, 'Crawl history unavailable. Run the crawl_jobs migration.');
+                $this->log('cli_crawl.history_unavailable', ['url' => $url]);
                 $jobRepository = null;
                 $jobId = null;
             }
@@ -81,11 +84,16 @@ final class CliCrawlCommand
         if ($reason !== null) {
             $this->recordJobResult($jobRepository, $jobId, CrawlResult::rejected($reason), $stderr);
             $this->writeLine($stderr, 'Crawl rejected: ' . $reason);
+            $this->log('cli_crawl.rejected', [
+                'url' => $url,
+                'reason' => $reason,
+            ]);
 
             return self::EXIT_REJECTED;
         }
 
         try {
+            $this->log('cli_crawl.requested', ['url' => $url]);
             $result = ($this->crawlServiceFactory)()->crawl(CrawlRequest::fromPolicy($url, $this->policy));
         } catch (Throwable $throwable) {
             $this->recordJobResult(
@@ -95,6 +103,7 @@ final class CliCrawlCommand
                 $stderr
             );
             $this->writeLine($stderr, 'Database/configuration failure: ' . $throwable->getMessage());
+            $this->log('cli_crawl.configuration_failed', ['url' => $url]);
 
             return self::EXIT_CONFIGURATION_ERROR;
         }
@@ -102,9 +111,12 @@ final class CliCrawlCommand
         $this->recordJobResult($jobRepository, $jobId, $result, $stderr);
 
         if (!$result->successful) {
+            $this->log('cli_crawl.failed', $this->resultContext($url, $result));
+
             return $this->handleFailedResult($result, $stderr);
         }
 
+        $this->log('cli_crawl.completed', $this->resultContext($url, $result));
         $this->writeLine($stdout, 'Crawl completed.');
         $this->writeLine($stdout, 'Pages discovered: ' . $result->pagesDiscovered);
         $this->writeLine($stdout, 'Pages indexed: ' . $result->pagesIndexed);
@@ -136,6 +148,7 @@ final class CliCrawlCommand
             $repository->markFromResult($jobId, $result);
         } catch (Throwable $throwable) {
             $this->writeLine($stderr, 'Crawl history could not be updated.');
+            $this->log('cli_crawl.history_update_failed', ['job_id' => $jobId]);
         }
     }
 
@@ -161,6 +174,28 @@ final class CliCrawlCommand
     private function writeLine(callable $writer, string $line = ''): void
     {
         $writer($line . PHP_EOL);
+    }
+
+    /**
+     * @param array<string, scalar|null> $context
+     */
+    private function log(string $event, array $context = []): void
+    {
+        $this->logger?->log($event, $context);
+    }
+
+    /**
+     * @return array<string, scalar|null>
+     */
+    private function resultContext(string $url, CrawlResult $result): array
+    {
+        return [
+            'url' => $url,
+            'pages_indexed' => $result->pagesIndexed,
+            'images_indexed' => $result->imagesIndexed,
+            'videos_indexed' => $result->videosIndexed,
+            'urls_rejected' => $result->urlsRejected,
+        ];
     }
 
     private static function plainTextOutput(string $output): string

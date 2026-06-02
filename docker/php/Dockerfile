@@ -1,7 +1,8 @@
-FROM php:8.3-apache
+FROM php:8.3-fpm
 
 RUN apt-get update \
     && apt-get install -y --no-install-recommends \
+        bash \
         curl \
         default-mysql-client \
         git \
@@ -9,19 +10,22 @@ RUN apt-get update \
         libxml2-dev \
         unzip \
     && docker-php-ext-install dom pdo_mysql pdo_sqlite \
-    && a2enmod headers rewrite \
     && rm -rf /var/lib/apt/lists/*
 
-RUN git config --global --add safe.directory /var/www/html
+RUN git config --system --add safe.directory /var/www/html
 
 COPY --from=composer:2 /usr/bin/composer /usr/bin/composer
-COPY docker/apache/000-default.conf /etc/apache2/sites-available/000-default.conf
 
 WORKDIR /var/www/html
+
+ENV COMPOSER_HOME=/tmp/composer
 
 COPY composer.json composer.lock ./
 RUN composer install --no-interaction --prefer-dist --no-progress
 
 COPY . .
 
-RUN chown -R www-data:www-data /var/www/html
+RUN mkdir -p /var/log/doogle /tmp/composer \
+    && chown -R www-data:www-data /var/www/html /var/log/doogle /tmp/composer
+
+USER www-data

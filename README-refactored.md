@@ -21,16 +21,17 @@ Completed from `ARCHITECTURE2.md`:
 - Phase E: CLI Crawl
 - Phase F: Legacy Removal
 - Phase G: Crawl Jobs / History
+- Phase H: Production Hardening
 - Phase I: Videos Search Vertical
 
 Remaining:
 
-- Phase H: Production Hardening
+- None currently tracked in `ARCHITECTURE2.md`.
 
 Key changes now in place:
 
 - Composer, PSR-4 autoloading, PHPUnit, PHPStan, PHPCS, and SBOM generation.
-- Runtime web files live under `public/`; Docker serves `/var/www/html/public`.
+- Runtime web files live under `public/`; Docker serves them through Nginx with PHP-FPM.
 - `app/` contains auth, crawl, database, repository, search, and security classes.
 - Legacy root `crawl.php`, root `crawl-manual.php`, and `classes/` have been removed.
 - Search uses repositories, services, DTOs, full-text indexes, relevance ranking, and bounded click boost for sites, images, and videos.
@@ -38,10 +39,15 @@ Key changes now in place:
 - CLI crawling does not require a browser session, but still enforces crawler safety policy.
 - Web and CLI crawl jobs are stored in `crawl_jobs` and shown on the authenticated crawl page.
 - Crawling indexes page metadata, images, and video references/embeds when safe URLs are discovered.
+- The Docker runtime uses Nginx, PHP-FPM, MariaDB, non-root PHP execution, baseline security headers, rate limiting, and auth/crawl event logging.
 
 ## Quick Start With Docker
 
 Docker is the preferred local workflow.
+
+Docker helper scripts load the repository-level `.env` file when it exists.
+For manual `docker compose` commands, pass `--env-file .env` when you want the
+same values.
 
 Start the app and create an initial admin user:
 
@@ -64,7 +70,7 @@ Open:
 - Admin crawl page: http://localhost:8000/crawl.php
 - phpMyAdmin: http://localhost:8081
 
-Default local database details:
+Default local database details without a `.env` override:
 
 - Host from host machine: `localhost:3307`
 - Host from app container: `mysql_db:3306`
@@ -202,6 +208,29 @@ CRAWLER_ALLOW_PRIVATE_NETWORKS=false
 By default, private and reserved network targets such as `127.0.0.1`,
 `localhost`, RFC1918 ranges, and link-local ranges are rejected.
 
+## Production Hardening Settings
+
+The Docker stack now runs Nginx in front of PHP-FPM and uses MariaDB. PHP runs
+as the non-root `www-data` user in the app container.
+
+Security-related runtime settings:
+
+```env
+SESSION_COOKIE_SECURE=false
+SESSION_COOKIE_SAMESITE=Lax
+DOOGLE_SECURITY_LOG=/var/log/doogle/security.log
+DOOGLE_RATE_LIMIT_DIR=/tmp/doogle-rate-limits
+DOOGLE_LOGIN_RATE_LIMIT_ATTEMPTS=10
+DOOGLE_LOGIN_RATE_LIMIT_WINDOW=60
+DOOGLE_CRAWL_RATE_LIMIT_ATTEMPTS=5
+DOOGLE_CRAWL_RATE_LIMIT_WINDOW=60
+```
+
+Set `SESSION_COOKIE_SECURE=true` when the app is served over HTTPS. The local
+Docker stack is plain HTTP, so it keeps secure cookies disabled by default.
+Enable HSTS at the TLS-terminating proxy or load balancer, not in the local HTTP
+container.
+
 ## Database And Migrations
 
 Fresh Docker databases are created from `doogle-tables-no-data.sql`.
@@ -327,12 +356,17 @@ users, and crawl history.
 
 - Browser crawl requires an authenticated admin.
 - Browser crawl POST requires CSRF validation.
+- Login and crawl POST requests are rate limited.
+- Auth and crawl security events are logged.
 - CLI crawl is trusted local/container execution, not public HTTP access.
 - Private/reserved network crawling is blocked by default.
 - Passwords are hashed with `password_hash()`.
 - Session IDs are regenerated on login.
+- Session cookies are HTTP-only and SameSite `Lax` by default.
+- Docker Nginx adds baseline security headers.
+- Docker PHP-FPM runs as a non-root user.
 - Internal code is outside the web document root.
 
-Production hardening is still Phase H. Before production use, review HTTPS,
-secure session cookies, rate limiting, logging, non-root container execution,
-and security scanning.
+Before production use, terminate HTTPS in front of the app, set
+`SESSION_COOKIE_SECURE=true`, review CSP for any new third-party assets, and
+confirm rate limits match expected traffic.

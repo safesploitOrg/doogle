@@ -1,6 +1,17 @@
-name: doogle
+name: ${DOOGLE_COMPOSE_PROJECT:-doogle}
 
 services:
+  web:
+    image: ${DOOGLE_NGINX_IMAGE:-nginx:1.27-alpine}
+    depends_on:
+      app:
+        condition: service_started
+    ports:
+      - "${DOOGLE_APP_PORT:-8000}:80"
+    volumes:
+      - ../public:/var/www/html/public:ro
+      - ./nginx/default.conf:/etc/nginx/conf.d/default.conf:ro
+
   app:
     build:
       context: ..
@@ -9,59 +20,69 @@ services:
       mysql_db:
         condition: service_healthy
     environment:
-      APP_ENV: local
-      APP_DEBUG: "true"
-      APP_URL: http://localhost:${DOOGLE_APP_PORT:-8000}
-      DB_HOST: mysql_db
-      DB_PORT: "3306"
-      DB_DATABASE: doogle
-      DB_USERNAME: doogle
-      DB_PASSWORD: ${DOOGLE_DB_PASSWORD:-doogle}
-      DB_CHARSET: utf8mb4
-      DB_ERRMODE: warning
-      CRAWLER_USER_AGENT: doogleBot/1.0
-      CRAWLER_MAX_DEPTH: "2"
-      CRAWLER_TIMEOUT_SECONDS: "10"
-      CRAWLER_MAX_PAGES_PER_JOB: "100"
-      CRAWLER_MAX_RESPONSE_BYTES: "1048576"
-      CRAWLER_ALLOW_PRIVATE_NETWORKS: "false"
-    ports:
-      - "${DOOGLE_APP_PORT:-8000}:80"
+      APP_ENV: "${APP_ENV:-local}"
+      APP_DEBUG: "${APP_DEBUG:-true}"
+      APP_URL: "${APP_URL:-http://localhost:8000}"
+      DB_HOST: "${DB_HOST:-mysql_db}"
+      DB_PORT: "${DB_PORT:-3306}"
+      DB_DATABASE: "${DB_DATABASE:-doogle}"
+      DB_USERNAME: "${DB_USERNAME:-doogle}"
+      DB_PASSWORD: "${DB_PASSWORD:-doogle}"
+      DB_CHARSET: "${DB_CHARSET:-utf8mb4}"
+      DB_ERRMODE: "${DB_ERRMODE:-warning}"
+      CRAWLER_USER_AGENT: "${CRAWLER_USER_AGENT:-doogleBot/1.2}"
+      CRAWLER_MAX_DEPTH: "${CRAWLER_MAX_DEPTH:-2}"
+      CRAWLER_TIMEOUT_SECONDS: "${CRAWLER_TIMEOUT_SECONDS:-10}"
+      CRAWLER_MAX_PAGES_PER_JOB: "${CRAWLER_MAX_PAGES_PER_JOB:-100}"
+      CRAWLER_MAX_RESPONSE_BYTES: "${CRAWLER_MAX_RESPONSE_BYTES:-1048576}"
+      CRAWLER_ALLOW_PRIVATE_NETWORKS: "${CRAWLER_ALLOW_PRIVATE_NETWORKS:-false}"
+      DOOGLE_SECURITY_LOG: "${DOOGLE_SECURITY_LOG:-/var/log/doogle/security.log}"
+      DOOGLE_RATE_LIMIT_DIR: "${DOOGLE_RATE_LIMIT_DIR:-/tmp/doogle-rate-limits}"
+      DOOGLE_LOGIN_RATE_LIMIT_ATTEMPTS: "${DOOGLE_LOGIN_RATE_LIMIT_ATTEMPTS:-10}"
+      DOOGLE_LOGIN_RATE_LIMIT_WINDOW: "${DOOGLE_LOGIN_RATE_LIMIT_WINDOW:-60}"
+      DOOGLE_CRAWL_RATE_LIMIT_ATTEMPTS: "${DOOGLE_CRAWL_RATE_LIMIT_ATTEMPTS:-5}"
+      DOOGLE_CRAWL_RATE_LIMIT_WINDOW: "${DOOGLE_CRAWL_RATE_LIMIT_WINDOW:-60}"
+      DOOGLE_ADMIN_USERNAME: "${DOOGLE_ADMIN_USERNAME:-admin}"
+      DOOGLE_ADMIN_EMAIL: "${DOOGLE_ADMIN_EMAIL:-admin@example.local}"
+      DOOGLE_ADMIN_PASSWORD: "${DOOGLE_ADMIN_PASSWORD:-}"
+      SESSION_COOKIE_SECURE: "${SESSION_COOKIE_SECURE:-false}"
+      SESSION_COOKIE_SAMESITE: "${SESSION_COOKIE_SAMESITE:-Lax}"
+    expose:
+      - "9000"
     volumes:
       - ..:/var/www/html
       - composer_vendor:/var/www/html/vendor
 
-# TODO: Migrate to MariaDB once the healthcheck supports it
   mysql_db:
-    image: mysql:8.4
+    image: ${DOOGLE_MARIADB_IMAGE:-mariadb:11.4}
     environment:
-      MYSQL_DATABASE: doogle
-      MYSQL_USER: doogle
-      MYSQL_PASSWORD: ${DOOGLE_DB_PASSWORD:-doogle}
-      MYSQL_ROOT_PASSWORD: ${DOOGLE_DB_ROOT_PASSWORD:-root}
+      MARIADB_DATABASE: "${DB_DATABASE:-doogle}"
+      MARIADB_USER: "${DB_USERNAME:-doogle}"
+      MARIADB_PASSWORD: "${DB_PASSWORD:-doogle}"
+      MARIADB_ROOT_PASSWORD: "${DB_ROOT_PASSWORD:-root}"
     ports:
       - "${DOOGLE_DB_PORT:-3307}:3306"
     volumes:
-      - mysql_data:/var/lib/mysql
+      - mariadb_data:/var/lib/mysql
       - ../doogle-tables-no-data.sql:/docker-entrypoint-initdb.d/001_schema.sql:ro
     healthcheck:
-      test: ["CMD-SHELL", "mysqladmin ping -h 127.0.0.1 -uroot -p$${MYSQL_ROOT_PASSWORD} --silent"]
+      test: ["CMD-SHELL", "mariadb-admin ping -h 127.0.0.1 -uroot -p$${MARIADB_ROOT_PASSWORD} --silent"]
       interval: 10s
       timeout: 5s
       retries: 10
 
   phpmyadmin:
-    image: phpmyadmin:5
+    image: ${DOOGLE_PHPMYADMIN_IMAGE:-phpmyadmin:5}
     depends_on:
       mysql_db:
         condition: service_healthy
     environment:
-      PMA_HOST: mysql_db
+      PMA_HOST: "${DB_HOST:-mysql_db}"
       PMA_USER: root
-      PMA_PASSWORD: ${DOOGLE_DB_ROOT_PASSWORD:-root}
+      PMA_PASSWORD: "${DB_ROOT_PASSWORD:-root}"
     ports:
       - "${DOOGLE_PHPMYADMIN_PORT:-8081}:80"
 
 volumes:
   composer_vendor:
-  mysql_data:
+  mariadb_data:
