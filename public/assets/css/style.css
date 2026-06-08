@@ -529,7 +529,7 @@ Admin
 }
 
 .adminNav a,
-.rankingTabs a
+.adminPageTabs a
 {
 	display: inline-flex;
 	align-items: center;
@@ -545,14 +545,14 @@ Admin
 }
 
 .adminNav a:hover,
-.rankingTabs a:hover
+.adminPageTabs a:hover
 {
 	background: #eef2f7;
 	color: #111827;
 }
 
 .adminNav a.active,
-.rankingTabs a.active
+.adminPageTabs a.active
 {
 	background: #e8f0fe;
 	color: #1A73E8;
@@ -590,6 +590,17 @@ Admin
 	font-size: 34px;
 	line-height: 1.15;
 	font-weight: bold;
+}
+
+.adminPageTabs
+{
+	display: inline-flex;
+	gap: 6px;
+	margin-bottom: 4px;
+	padding: 4px;
+	background: #ffffff;
+	border: 1px solid #dfe4ea;
+	border-radius: 10px;
 }
 
 .adminPanel
@@ -693,6 +704,7 @@ Admin
 }
 
 .adminInputRow input,
+.adminSelect,
 .rankingWeights input
 {
 	width: 100%;
@@ -707,13 +719,35 @@ Admin
 }
 
 .adminInputRow input:focus,
+.adminSelect:focus,
 .rankingWeights input:focus
 {
 	border-color: #1A73E8;
 	box-shadow: 0 0 0 3px rgba(26, 115, 232, 0.14);
 }
 
-.adminPrimaryButton
+.adminSelectForm
+{
+	display: flex;
+	align-items: flex-end;
+	gap: 10px;
+	margin-bottom: 16px;
+}
+
+.adminSelectForm label
+{
+	margin-bottom: 7px;
+}
+
+.adminSelect
+{
+	min-width: 190px;
+	padding-right: 34px;
+	cursor: pointer;
+}
+
+.adminPrimaryButton,
+.adminSecondaryButton
 {
 	min-height: 42px;
 	padding: 0 16px;
@@ -730,6 +764,19 @@ Admin
 {
 	background: #1765cc;
 	border-color: #1765cc;
+}
+
+.adminSecondaryButton
+{
+	color: #334155;
+	background: #ffffff;
+	border-color: #cbd5e1;
+}
+
+.adminSecondaryButton:hover
+{
+	background: #f8fafc;
+	border-color: #94a3b8;
 }
 
 .adminStatGrid,
@@ -916,14 +963,6 @@ Admin
 	border: 1px dashed #cbd5e1;
 	border-radius: 8px;
 	font-size: 13px;
-}
-
-.rankingTabs
-{
-	display: flex;
-	flex-wrap: wrap;
-	gap: 8px;
-	margin-bottom: 16px;
 }
 
 .rankingForm

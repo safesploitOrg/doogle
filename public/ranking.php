@@ -32,9 +32,11 @@ $analyticsRepository = new SearchAnalyticsRepository($con);
 $rankingSettings = new RankingSettings();
 $message = '';
 $error = '';
+$selectedView = selectedRankingView();
 $selectedType = selectedRankingType($rankingSettings);
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
+    $selectedView = 'controls';
     $postedType = isset($_POST['type']) ? (string) $_POST['type'] : 'sites';
     $selectedType = supportedRankingType($rankingSettings, $postedType);
     $token = isset($_POST['csrf_token']) ? (string) $_POST['csrf_token'] : null;
@@ -101,6 +103,13 @@ function h(string $value): string
 function requestIp(): string
 {
     return (string) ($_SERVER['REMOTE_ADDR'] ?? 'unknown');
+}
+
+function selectedRankingView(): string
+{
+    $view = isset($_GET['view']) ? (string) $_GET['view'] : 'controls';
+
+    return in_array($view, ['controls', 'analytics'], true) ? $view : 'controls';
 }
 
 function selectedRankingType(RankingSettings $settings): string
@@ -273,6 +282,17 @@ function renderWeightInputs(array $weights): string
                 </div>
             </section>
 
+            <nav class="adminPageTabs" aria-label="Ranking sections">
+                <a class="<?php echo $selectedView === 'controls' ? 'active' : ''; ?>"
+                   href="ranking.php?view=controls&type=<?php echo h($selectedType); ?>">
+                    Controls
+                </a>
+                <a class="<?php echo $selectedView === 'analytics' ? 'active' : ''; ?>"
+                   href="ranking.php?view=analytics&type=<?php echo h($selectedType); ?>">
+                    Analytics
+                </a>
+            </nav>
+
             <?php if ($message !== ''): ?>
                 <p class="adminAlert adminAlertSuccess"><?php echo h($message); ?></p>
             <?php endif; ?>
@@ -281,10 +301,11 @@ function renderWeightInputs(array $weights): string
                 <p class="adminAlert adminAlertDanger"><?php echo h($error); ?></p>
             <?php endif; ?>
 
-            <?php if ($analyticsError !== ''): ?>
+            <?php if ($selectedView === 'analytics' && $analyticsError !== ''): ?>
                 <p class="adminAlert adminAlertWarning"><?php echo h($analyticsError); ?></p>
             <?php endif; ?>
 
+            <?php if ($selectedView === 'controls'): ?>
             <section class="adminPanel">
                 <div class="adminPanelHeader">
                     <div>
@@ -293,15 +314,20 @@ function renderWeightInputs(array $weights): string
                     </div>
                 </div>
 
-                <div class="rankingTabs" role="list">
-                    <?php foreach ($rankingSettings->supportedTypes() as $type): ?>
-                        <a class="<?php echo $type === $selectedType ? 'active' : ''; ?>"
-                           href="ranking.php?type=<?php echo h($type); ?>"
-                           role="listitem">
-                            <?php echo h(ucfirst($type)); ?>
-                        </a>
-                    <?php endforeach; ?>
-                </div>
+                <form class="adminForm adminSelectForm" action="ranking.php" method="get">
+                    <input type="hidden" name="view" value="controls">
+                    <label for="ranking-type">Vertical</label>
+                    <select id="ranking-type" class="adminSelect" name="type" onchange="this.form.submit()">
+                        <?php foreach ($rankingSettings->supportedTypes() as $type): ?>
+                            <option value="<?php echo h($type); ?>" <?php echo $type === $selectedType ? 'selected' : ''; ?>>
+                                <?php echo h(ucfirst($type)); ?>
+                            </option>
+                        <?php endforeach; ?>
+                    </select>
+                    <noscript>
+                        <button class="adminSecondaryButton" type="submit">Load</button>
+                    </noscript>
+                </form>
 
                 <form action="ranking.php" method="post" class="adminForm rankingForm">
                     <input type="hidden" name="csrf_token" value="<?php echo h($csrfToken); ?>">
@@ -329,7 +355,9 @@ function renderWeightInputs(array $weights): string
                     </div>
                 </div>
             </section>
+            <?php endif; ?>
 
+            <?php if ($selectedView === 'analytics'): ?>
             <section class="adminPanel">
                 <div class="adminPanelHeader">
                     <div>
@@ -360,6 +388,7 @@ function renderWeightInputs(array $weights): string
                     </section>
                 </div>
             </section>
+            <?php endif; ?>
         </main>
     </div>
 </body>
