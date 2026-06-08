@@ -145,10 +145,10 @@ function postedWeights(mixed $weights): array
 function renderTermTable(array $terms): string
 {
     if ($terms === []) {
-        return '<p>No searches recorded yet.</p>';
+        return '<p class="adminEmptyState">No searches recorded yet.</p>';
     }
 
-    $html = '<table class="adminTable"><thead><tr>'
+    $html = '<div class="adminTableWrap"><table class="adminTable"><thead><tr>'
         . '<th>Term</th><th>Type</th><th>Searches</th><th>Average results</th><th>Last searched</th>'
         . '</tr></thead><tbody>';
 
@@ -162,7 +162,7 @@ function renderTermTable(array $terms): string
             . '</tr>';
     }
 
-    return $html . '</tbody></table>';
+    return $html . '</tbody></table></div>';
 }
 
 /**
@@ -171,10 +171,10 @@ function renderTermTable(array $terms): string
 function renderTypeSummaryTable(array $summaries): string
 {
     if ($summaries === []) {
-        return '<p>No search vertical analytics recorded yet.</p>';
+        return '<p class="adminEmptyState">No search vertical analytics recorded yet.</p>';
     }
 
-    $html = '<table class="adminTable"><thead><tr>'
+    $html = '<div class="adminTableWrap"><table class="adminTable"><thead><tr>'
         . '<th>Type</th><th>Searches</th><th>Zero-result searches</th><th>Average results</th>'
         . '</tr></thead><tbody>';
 
@@ -187,7 +187,7 @@ function renderTypeSummaryTable(array $summaries): string
             . '</tr>';
     }
 
-    return $html . '</tbody></table>';
+    return $html . '</tbody></table></div>';
 }
 
 /**
@@ -196,10 +196,10 @@ function renderTypeSummaryTable(array $summaries): string
 function renderRecentSearchTable(array $events): string
 {
     if ($events === []) {
-        return '<p>No recent searches recorded yet.</p>';
+        return '<p class="adminEmptyState">No recent searches recorded yet.</p>';
     }
 
-    $html = '<table class="adminTable"><thead><tr>'
+    $html = '<div class="adminTableWrap"><table class="adminTable"><thead><tr>'
         . '<th>When</th><th>Term</th><th>Type</th><th>Results</th><th>Page</th>'
         . '</tr></thead><tbody>';
 
@@ -213,7 +213,7 @@ function renderRecentSearchTable(array $events): string
             . '</tr>';
     }
 
-    return $html . '</tbody></table>';
+    return $html . '</tbody></table></div>';
 }
 
 /**
@@ -221,7 +221,7 @@ function renderRecentSearchTable(array $events): string
  */
 function renderWeightInputs(array $weights): string
 {
-    $html = '<table class="adminTable rankingWeights"><thead><tr>'
+    $html = '<div class="adminTableWrap"><table class="adminTable rankingWeights"><thead><tr>'
         . '<th>Signal</th><th>Weight</th><th>Default</th>'
         . '</tr></thead><tbody>';
 
@@ -234,7 +234,7 @@ function renderWeightInputs(array $weights): string
             . '</tr>';
     }
 
-    return $html . '</tbody></table>';
+    return $html . '</tbody></table></div>';
 }
 ?>
 
@@ -250,72 +250,117 @@ function renderWeightInputs(array $weights): string
     <link rel="icon" type="image/x-icon" href="assets/images/favicon/favicon.ico">
     <link rel="stylesheet" type="text/css" href="assets/css/style.css">
 </head>
-<body>
-    <div class="headerContent adminHeader">
-        <div class="logoContainer">
-            <a href="index.php">Homepage</a>
-        </div>
-        <nav class="adminNav">
-            <a href="crawl.php">Crawl</a>
-            <a href="ranking.php">Ranking</a>
-            <a href="logout.php">Logout</a>
-        </nav>
-    </div>
+<body class="adminBody">
+    <div class="adminApp">
+        <header class="adminTopbar">
+            <a class="adminBrand" href="index.php">
+                <span class="adminBrandMark">D</span>
+                <span>Doogle Admin</span>
+            </a>
+            <nav class="adminNav" aria-label="Admin navigation">
+                <a href="index.php">Search</a>
+                <a href="crawl.php">Crawl</a>
+                <a class="active" href="ranking.php">Ranking</a>
+                <a href="logout.php">Logout</a>
+            </nav>
+        </header>
 
-    <div class="mainResultsSection adminSection">
-        <?php if ($message !== ''): ?>
-            <p class="resultsCount"><?php echo h($message); ?></p>
-        <?php endif; ?>
+        <main class="adminShell">
+            <section class="adminPageHeader">
+                <div>
+                    <p class="adminEyebrow">Search quality</p>
+                    <h1>Ranking</h1>
+                </div>
+            </section>
 
-        <?php if ($error !== ''): ?>
-            <p class="resultsCount"><?php echo h($error); ?></p>
-        <?php endif; ?>
+            <?php if ($message !== ''): ?>
+                <p class="adminAlert adminAlertSuccess"><?php echo h($message); ?></p>
+            <?php endif; ?>
 
-        <?php if ($analyticsError !== ''): ?>
-            <p class="resultsCount"><?php echo h($analyticsError); ?></p>
-        <?php endif; ?>
+            <?php if ($error !== ''): ?>
+                <p class="adminAlert adminAlertDanger"><?php echo h($error); ?></p>
+            <?php endif; ?>
 
-        <div class="siteResults">
-            <h2>Ranking controls</h2>
-            <div class="rankingTabs">
-                <?php foreach ($rankingSettings->supportedTypes() as $type): ?>
-                    <a class="<?php echo $type === $selectedType ? 'active' : ''; ?>"
-                       href="ranking.php?type=<?php echo h($type); ?>">
-                        <?php echo h(ucfirst($type)); ?>
-                    </a>
-                <?php endforeach; ?>
-            </div>
+            <?php if ($analyticsError !== ''): ?>
+                <p class="adminAlert adminAlertWarning"><?php echo h($analyticsError); ?></p>
+            <?php endif; ?>
 
-            <form action="ranking.php" method="post" class="rankingForm">
-                <input type="hidden" name="csrf_token" value="<?php echo h($csrfToken); ?>">
-                <input type="hidden" name="type" value="<?php echo h($selectedType); ?>">
-                <?php echo renderWeightInputs($rankingSettings->weightDefinitionsFor($selectedType)); ?>
-                <button type="submit">Save weights</button>
-            </form>
+            <section class="adminPanel">
+                <div class="adminPanelHeader">
+                    <div>
+                        <h2>Ranking controls</h2>
+                        <p>Adjust field weights for each public search vertical.</p>
+                    </div>
+                </div>
 
-            <p>
-                Click boost: min(clicks, <?php echo h((string) $rankingSettings->clickBoostCap()); ?>)
-                * <?php echo h((string) $rankingSettings->clickBoostWeight()); ?>
-                (max <?php echo h((string) $rankingSettings->clickBoostMaximum()); ?>).
-                Full-text boost: min(score * <?php echo h((string) $rankingSettings->fullTextWeight()); ?>,
-                <?php echo h((string) $rankingSettings->fullTextCap()); ?>).
-            </p>
-        </div>
+                <div class="rankingTabs" role="list">
+                    <?php foreach ($rankingSettings->supportedTypes() as $type): ?>
+                        <a class="<?php echo $type === $selectedType ? 'active' : ''; ?>"
+                           href="ranking.php?type=<?php echo h($type); ?>"
+                           role="listitem">
+                            <?php echo h(ucfirst($type)); ?>
+                        </a>
+                    <?php endforeach; ?>
+                </div>
 
-        <div class="siteResults">
-            <h2>Search analytics</h2>
-            <h3>By vertical</h3>
-            <?php echo renderTypeSummaryTable($typeSummary); ?>
+                <form action="ranking.php" method="post" class="adminForm rankingForm">
+                    <input type="hidden" name="csrf_token" value="<?php echo h($csrfToken); ?>">
+                    <input type="hidden" name="type" value="<?php echo h($selectedType); ?>">
+                    <?php echo renderWeightInputs($rankingSettings->weightDefinitionsFor($selectedType)); ?>
+                    <button class="adminPrimaryButton" type="submit">Save weights</button>
+                </form>
 
-            <h3>Top terms</h3>
-            <?php echo renderTermTable($topTerms); ?>
+                <div class="adminMetricStrip">
+                    <div class="adminMetric">
+                        <span>Click boost cap</span>
+                        <strong><?php echo h((string) $rankingSettings->clickBoostCap()); ?></strong>
+                    </div>
+                    <div class="adminMetric">
+                        <span>Click weight</span>
+                        <strong><?php echo h((string) $rankingSettings->clickBoostWeight()); ?></strong>
+                    </div>
+                    <div class="adminMetric">
+                        <span>Max click boost</span>
+                        <strong><?php echo h((string) $rankingSettings->clickBoostMaximum()); ?></strong>
+                    </div>
+                    <div class="adminMetric">
+                        <span>Full-text cap</span>
+                        <strong><?php echo h((string) $rankingSettings->fullTextCap()); ?></strong>
+                    </div>
+                </div>
+            </section>
 
-            <h3>Zero-result terms</h3>
-            <?php echo renderTermTable($zeroResultTerms); ?>
+            <section class="adminPanel">
+                <div class="adminPanelHeader">
+                    <div>
+                        <h2>Search analytics</h2>
+                        <p>Recent public search activity across Sites, Images, and Videos.</p>
+                    </div>
+                </div>
 
-            <h3>Recent searches</h3>
-            <?php echo renderRecentSearchTable($recentSearches); ?>
-        </div>
+                <div class="adminAnalyticsGrid">
+                    <section>
+                        <h3>By vertical</h3>
+                        <?php echo renderTypeSummaryTable($typeSummary); ?>
+                    </section>
+
+                    <section>
+                        <h3>Top terms</h3>
+                        <?php echo renderTermTable($topTerms); ?>
+                    </section>
+
+                    <section>
+                        <h3>Zero-result terms</h3>
+                        <?php echo renderTermTable($zeroResultTerms); ?>
+                    </section>
+
+                    <section>
+                        <h3>Recent searches</h3>
+                        <?php echo renderRecentSearchTable($recentSearches); ?>
+                    </section>
+                </div>
+            </section>
+        </main>
     </div>
 </body>
 </html>

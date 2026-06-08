@@ -124,6 +124,16 @@ function statusLabel(string $status): string
 	return ucfirst($status);
 }
 
+function statusCssClass(string $status): string
+{
+	return match ($status) {
+		'completed' => 'statusSuccess',
+		'running' => 'statusInfo',
+		'failed', 'rejected' => 'statusDanger',
+		default => 'statusNeutral',
+	};
+}
+
 function requestIp(): string
 {
 	return (string) ($_SERVER['REMOTE_ADDR'] ?? 'unknown');
@@ -147,84 +157,160 @@ function crawlRateLimitIdentity(?int $userId): string
 	<link rel="icon" type="image/x-icon" href="assets/images/favicon/favicon.ico">
 	<link rel="stylesheet" type="text/css" href="assets/css/style.css">
 </head>
-<body>
-	<div class="headerContent">
-		<div class="logoContainer">
-			<a href="index.php">Homepage</a>
-		</div>
-		<div id="crawl-wrapper">
-			<form action="crawl.php" method="post" accept-charset="utf-8">
-				<input type="hidden" name="csrf_token" value="<?php echo h($csrfToken); ?>">
-				URL: <input type="url" name="url" required="required" id="crawl-input" value="<?php echo h($submittedUrl); ?>">
-				<button type="submit">Crawl</button>
-			</form>
-			<a href="ranking.php">Ranking</a>
-			<a href="logout.php">Logout</a>
-		</div>
-	</div>
+<body class="adminBody">
+	<div class="adminApp">
+		<header class="adminTopbar">
+			<a class="adminBrand" href="index.php">
+				<span class="adminBrandMark">D</span>
+				<span>Doogle Admin</span>
+			</a>
+			<nav class="adminNav" aria-label="Admin navigation">
+				<a href="index.php">Search</a>
+				<a class="active" href="crawl.php">Crawl</a>
+				<a href="ranking.php">Ranking</a>
+				<a href="logout.php">Logout</a>
+			</nav>
+		</header>
 
-	<div class="mainResultsSection">
+		<main class="adminShell">
+			<section class="adminPageHeader">
+				<div>
+					<p class="adminEyebrow">Operations</p>
+					<h1>Crawler</h1>
+				</div>
+			</section>
+
 		<?php if ($error !== ''): ?>
-			<p class="resultsCount"><?php echo h($error); ?></p>
+			<p class="adminAlert adminAlertDanger"><?php echo h($error); ?></p>
 		<?php endif; ?>
 
 		<?php if ($historyError !== ''): ?>
-			<p class="resultsCount"><?php echo h($historyError); ?></p>
+			<p class="adminAlert adminAlertWarning"><?php echo h($historyError); ?></p>
 		<?php endif; ?>
 
+			<section class="adminPanel">
+				<div class="adminPanelHeader">
+					<div>
+						<h2>New crawl</h2>
+						<p>Submit a URL for the authenticated crawler.</p>
+					</div>
+				</div>
+				<form class="adminForm adminCrawlForm" action="crawl.php" method="post" accept-charset="utf-8">
+					<input type="hidden" name="csrf_token" value="<?php echo h($csrfToken); ?>">
+					<label for="crawl-input">URL</label>
+					<div class="adminInputRow">
+						<input type="url" name="url" required="required" id="crawl-input" value="<?php echo h($submittedUrl); ?>" placeholder="https://example.com">
+						<button class="adminPrimaryButton" type="submit">Crawl</button>
+					</div>
+				</form>
+			</section>
+
 		<?php if ($result !== null): ?>
-			<p class="resultsCount">
-				<?php echo $result->successful ? 'Crawl completed.' : 'Crawl failed.'; ?>
-			</p>
+			<section class="adminPanel">
+				<div class="adminPanelHeader">
+					<div>
+						<h2>Last crawl</h2>
+						<p><?php echo h($submittedUrl); ?></p>
+					</div>
+					<span class="statusBadge <?php echo $result->successful ? 'statusSuccess' : 'statusDanger'; ?>">
+						<?php echo $result->successful ? 'Completed' : 'Failed'; ?>
+					</span>
+				</div>
 
 			<?php if ($result->errors !== []): ?>
-				<div class="siteResults">
+				<div class="adminAlert adminAlertDanger">
 					<?php foreach ($result->errors as $resultError): ?>
 						<p><?php echo h($resultError); ?></p>
 					<?php endforeach; ?>
 				</div>
 			<?php endif; ?>
 
-			<div class="siteResults">
-				<p>Pages discovered: <?php echo $result->pagesDiscovered; ?></p>
-				<p>Pages indexed: <?php echo $result->pagesIndexed; ?></p>
-				<p>Images indexed: <?php echo $result->imagesIndexed; ?></p>
-				<p>Videos indexed: <?php echo $result->videosIndexed; ?></p>
-				<p>URLs rejected: <?php echo $result->urlsRejected; ?></p>
+			<div class="adminStatGrid">
+				<div class="adminStat">
+					<span>Pages discovered</span>
+					<strong><?php echo h((string) $result->pagesDiscovered); ?></strong>
+				</div>
+				<div class="adminStat">
+					<span>Pages indexed</span>
+					<strong><?php echo h((string) $result->pagesIndexed); ?></strong>
+				</div>
+				<div class="adminStat">
+					<span>Images indexed</span>
+					<strong><?php echo h((string) $result->imagesIndexed); ?></strong>
+				</div>
+				<div class="adminStat">
+					<span>Videos indexed</span>
+					<strong><?php echo h((string) $result->videosIndexed); ?></strong>
+				</div>
+				<div class="adminStat">
+					<span>URLs rejected</span>
+					<strong><?php echo h((string) $result->urlsRejected); ?></strong>
+				</div>
 			</div>
 
 			<?php $output = crawlOutputText($result->output); ?>
 			<?php if ($output !== ''): ?>
-				<div class="siteResults">
+				<details class="adminDisclosure">
+					<summary>Crawl output</summary>
 					<pre><?php echo h($output); ?></pre>
-				</div>
+				</details>
 			<?php endif; ?>
+			</section>
 		<?php endif; ?>
 
-		<div class="siteResults">
-			<h3>Crawl history</h3>
+			<section class="adminPanel">
+				<div class="adminPanelHeader">
+					<div>
+						<h2>Crawl history</h2>
+						<p>Recent web and CLI crawl jobs.</p>
+					</div>
+				</div>
 
 			<?php if ($crawlHistory === []): ?>
-				<p>No crawls recorded yet.</p>
+				<p class="adminEmptyState">No crawls recorded yet.</p>
 			<?php else: ?>
-				<?php foreach ($crawlHistory as $job): ?>
-					<div class="resultContainer">
-						<h3 class="title"><?php echo h(statusLabel($job->status)); ?>: <?php echo h($job->startUrl); ?></h3>
-						<span class="description">
-							Pages discovered: <?php echo h((string) $job->pagesDiscovered); ?>,
-							pages indexed: <?php echo h((string) $job->pagesIndexed); ?>,
-							images indexed: <?php echo h((string) $job->imagesIndexed); ?>,
-							videos indexed: <?php echo h((string) $job->videosIndexed); ?>,
-							URLs rejected: <?php echo h((string) $job->urlsRejected); ?>
-						</span>
-						<span class="url"><?php echo h($job->updatedAt); ?></span>
-						<?php if ($job->errorMessage !== null && $job->errorMessage !== ''): ?>
-							<span class="description"><?php echo h($job->errorMessage); ?></span>
-						<?php endif; ?>
-					</div>
-				<?php endforeach; ?>
+				<div class="adminTableWrap">
+					<table class="adminTable">
+						<thead>
+							<tr>
+								<th>Status</th>
+								<th>URL</th>
+								<th>Indexed</th>
+								<th>Rejected</th>
+								<th>Updated</th>
+							</tr>
+						</thead>
+						<tbody>
+							<?php foreach ($crawlHistory as $job): ?>
+								<tr>
+									<td>
+										<span class="statusBadge <?php echo h(statusCssClass($job->status)); ?>">
+											<?php echo h(statusLabel($job->status)); ?>
+										</span>
+									</td>
+									<td>
+										<span class="adminTableTitle"><?php echo h($job->startUrl); ?></span>
+										<?php if ($job->errorMessage !== null && $job->errorMessage !== ''): ?>
+											<span class="adminTableMeta"><?php echo h($job->errorMessage); ?></span>
+										<?php endif; ?>
+									</td>
+									<td>
+										<span class="adminTableMeta">
+											<?php echo h((string) $job->pagesIndexed); ?> pages,
+											<?php echo h((string) $job->imagesIndexed); ?> images,
+											<?php echo h((string) $job->videosIndexed); ?> videos
+										</span>
+									</td>
+									<td><?php echo h((string) $job->urlsRejected); ?></td>
+									<td><?php echo h($job->updatedAt); ?></td>
+								</tr>
+							<?php endforeach; ?>
+						</tbody>
+					</table>
+				</div>
 			<?php endif; ?>
-		</div>
+			</section>
+		</main>
 	</div>
 </body>
 </html>
