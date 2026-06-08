@@ -24,10 +24,7 @@ Completed from `ARCHITECTURE2.md`:
 - Phase H: Production Hardening
 - Phase I: Videos Search Vertical
 - Phase J: Search Ranking
-
-Remaining:
-
-- Phase K: Search analytics and admin ranking controls are future optional work.
+- Phase K: Search Analytics And Admin Ranking Controls
 
 Key changes now in place:
 
@@ -37,6 +34,8 @@ Key changes now in place:
 - Legacy root `crawl.php`, root `crawl-manual.php`, and `classes/` have been removed.
 - Search uses repositories, services, DTOs, full-text indexes, relevance ranking, and bounded click boost for sites, images, and videos.
 - Ranking uses a shared deterministic formula with capped click/full-text boosts and per-vertical quality signals.
+- Public searches are recorded in `search_queries` with hashed request identifiers for admin analytics.
+- Admins can view analytics and tune per-vertical ranking weights at `/ranking.php`.
 - Browser crawling requires an admin login and CSRF token.
 - CLI crawling does not require a browser session, but still enforces crawler safety policy.
 - Web and CLI crawl jobs are stored in `crawl_jobs` and shown on the authenticated crawl page.
@@ -70,6 +69,7 @@ Open:
 
 - Doogle search: http://localhost:8000
 - Admin crawl page: http://localhost:8000/crawl.php
+- Admin ranking page: http://localhost:8000/ranking.php
 - phpMyAdmin: http://localhost:8081
 
 Default local database details without a `.env` override:
@@ -137,6 +137,26 @@ http://localhost:8000/search.php?term=example&type=videos
 Site search returns 20 results per page. Image search returns 30 results per
 page. Video search returns 24 results per page in a responsive thumbnail-card
 grid.
+
+Search analytics are recorded when `database/migrations/005_create_search_analytics.sql`
+has been applied. If the analytics table is not present, public search still
+renders normally.
+
+## Admin Ranking And Analytics
+
+The admin ranking page is available after login:
+
+```text
+http://localhost:8000/ranking.php
+```
+
+It shows search analytics by vertical, top terms, zero-result terms, and recent
+searches. Request IP and user-agent values are stored as SHA-256 hashes, not as
+raw values.
+
+The same page lets admins update per-vertical ranking weights for Sites, Images,
+and Videos. Default weights match Phase J; saved overrides are loaded by public
+search on the next request. Click boost and full-text boost caps remain fixed.
 
 ## Crawling: Web UI
 
@@ -266,6 +286,7 @@ database/migrations/001_add_search_fulltext_indexes.sql
 database/migrations/002_update_users_auth_schema.sql
 database/migrations/003_create_crawl_jobs.sql
 database/migrations/004_add_video_search.sql
+database/migrations/005_create_search_analytics.sql
 ```
 
 Apply a migration to the Docker database:
@@ -273,6 +294,7 @@ Apply a migration to the Docker database:
 ```sh
 docker compose -f docker/compose.yml exec -T mysql_db mysql -uroot -proot doogle < database/migrations/003_create_crawl_jobs.sql
 docker compose -f docker/compose.yml exec -T mysql_db mysql -uroot -proot doogle < database/migrations/004_add_video_search.sql
+docker compose -f docker/compose.yml exec -T mysql_db mysql -uroot -proot doogle < database/migrations/005_create_search_analytics.sql
 ```
 
 For non-Docker MySQL, apply the same SQL files with your normal MySQL client.
@@ -375,13 +397,14 @@ If you already have an older Docker volume or database:
 
 Resetting the Docker database deletes local indexed sites, images, videos,
 users, and crawl history.
+It also deletes search analytics and ranking setting overrides.
 
 ## Security Defaults
 
 - Browser crawl requires an authenticated admin.
 - Browser crawl POST requires CSRF validation.
 - Login and crawl POST requests are rate limited.
-- Auth and crawl security events are logged.
+- Auth, crawl, and ranking security events are logged.
 - CLI crawl is trusted local/container execution, not public HTTP access.
 - Private/reserved network crawling is blocked by default.
 - Passwords are hashed with `password_hash()`.

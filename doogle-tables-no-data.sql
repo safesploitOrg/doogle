@@ -107,6 +107,35 @@ CREATE TABLE IF NOT EXISTS `crawl_jobs` (
   `updated_at` timestamp DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 
+-- --------------------------------------------------------
+
+--
+-- Table structure for table `search_queries`
+--
+
+CREATE TABLE IF NOT EXISTS `search_queries` (
+  `id` int(11) NOT NULL,
+  `term` varchar(255) NOT NULL,
+  `type` varchar(20) NOT NULL,
+  `result_count` int(11) NOT NULL DEFAULT '0',
+  `page` int(11) NOT NULL DEFAULT '1',
+  `ip_hash` varchar(64) NOT NULL DEFAULT '',
+  `user_agent_hash` varchar(64) NOT NULL DEFAULT '',
+  `created_at` timestamp DEFAULT CURRENT_TIMESTAMP
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+-- --------------------------------------------------------
+
+--
+-- Table structure for table `ranking_settings`
+--
+
+CREATE TABLE IF NOT EXISTS `ranking_settings` (
+  `setting_key` varchar(100) NOT NULL,
+  `setting_value` varchar(100) NOT NULL,
+  `updated_at` timestamp DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
 
 --
 -- Indexes for dumped tables
@@ -151,6 +180,22 @@ ALTER TABLE `crawl_jobs`
   ADD KEY `idx_crawl_jobs_requested_by` (`requested_by_user_id`);
 
 --
+-- Indexes for table `search_queries`
+--
+ALTER TABLE `search_queries`
+  ADD PRIMARY KEY (`id`),
+  ADD KEY `idx_search_queries_created_at` (`created_at`),
+  ADD KEY `idx_search_queries_term_type` (`term`, `type`),
+  ADD KEY `idx_search_queries_type` (`type`),
+  ADD KEY `idx_search_queries_result_count` (`result_count`);
+
+--
+-- Indexes for table `ranking_settings`
+--
+ALTER TABLE `ranking_settings`
+  ADD PRIMARY KEY (`setting_key`);
+
+--
 -- AUTO_INCREMENT for dumped tables
 --
 
@@ -182,6 +227,12 @@ ALTER TABLE `users`
 -- AUTO_INCREMENT for table `crawl_jobs`
 --
 ALTER TABLE `crawl_jobs`
+  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT;
+
+--
+-- AUTO_INCREMENT for table `search_queries`
+--
+ALTER TABLE `search_queries`
   MODIFY `id` int(11) NOT NULL AUTO_INCREMENT;
 COMMIT;
 

@@ -5,15 +5,18 @@ declare(strict_types=1);
 namespace Doogle\Repository;
 
 use Doogle\Search\RankingExpression;
+use Doogle\Search\RankingSettings;
 use PDO;
 use PDOStatement;
 
 final class VideoRepository implements VideoSearchRepository
 {
     private const VIDEO_FULL_TEXT_COLUMNS = 'title, description, videoUrl, siteUrl';
+    private readonly RankingSettings $rankingSettings;
 
-    public function __construct(private readonly PDO $pdo)
+    public function __construct(private readonly PDO $pdo, ?RankingSettings $rankingSettings = null)
     {
+        $this->rankingSettings = $rankingSettings ?? new RankingSettings();
     }
 
     public function countBySearchTerm(string $term): int
@@ -83,16 +86,17 @@ final class VideoRepository implements VideoSearchRepository
 
     private function videoRankingSql(): string
     {
+        $weights = $this->rankingSettings->weightsFor('videos');
         $scores = [
-            RankingExpression::weightedEquals('title', ':rankTitleExactTerm', 230),
-            RankingExpression::weightedLike('title', ':rankTitleTerm', 100),
-            RankingExpression::weightedLike('description', ':rankDescriptionTerm', 55),
-            RankingExpression::weightedLike('videoUrl', ':rankVideoUrlTerm', 25),
-            RankingExpression::weightedLike('siteUrl', ':rankSiteUrlTerm', 15),
-            RankingExpression::httpsUrl('videoUrl', 3),
-            RankingExpression::nonEmpty('thumbnailUrl', 5),
-            RankingExpression::nonEmpty('title', 5),
-            RankingExpression::nonEmpty('description', 3),
+            RankingExpression::weightedEquals('title', ':rankTitleExactTerm', $weights['title_exact']),
+            RankingExpression::weightedLike('title', ':rankTitleTerm', $weights['title_partial']),
+            RankingExpression::weightedLike('description', ':rankDescriptionTerm', $weights['description_partial']),
+            RankingExpression::weightedLike('videoUrl', ':rankVideoUrlTerm', $weights['video_url_partial']),
+            RankingExpression::weightedLike('siteUrl', ':rankSiteUrlTerm', $weights['site_url_partial']),
+            RankingExpression::httpsUrl('videoUrl', $weights['https_video_url']),
+            RankingExpression::nonEmpty('thumbnailUrl', $weights['thumbnail_present']),
+            RankingExpression::nonEmpty('title', $weights['title_present']),
+            RankingExpression::nonEmpty('description', $weights['description_present']),
             RankingExpression::boundedClickBoost(),
         ];
 
@@ -102,8 +106,8 @@ final class VideoRepository implements VideoSearchRepository
                 RankingExpression::boundedMysqlFullTextBoost(
                     self::VIDEO_FULL_TEXT_COLUMNS,
                     ':rankFullTextTerm',
-                    50,
-                    120
+                    $this->rankingSettings->fullTextWeight(),
+                    $this->rankingSettings->fullTextCap()
                 )
             );
         }

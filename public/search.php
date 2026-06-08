@@ -3,12 +3,15 @@
 declare(strict_types=1);
 
 use Doogle\Repository\ImageRepository;
+use Doogle\Repository\RankingSettingsRepository;
+use Doogle\Repository\SearchAnalyticsRepository;
 use Doogle\Repository\SiteRepository;
 use Doogle\Repository\VideoRepository;
 use Doogle\Search\FieldFormatter;
 use Doogle\Search\ImageResult;
 use Doogle\Search\ImageSearchService;
 use Doogle\Search\Paginator;
+use Doogle\Search\RankingSettings;
 use Doogle\Search\SearchResult;
 use Doogle\Search\SearchService;
 use Doogle\Search\VideoResult;
@@ -26,6 +29,7 @@ $type = isset($_GET['type']) ? (string) $_GET['type'] : 'sites';
 $type = in_array($type, ['sites', 'images', 'videos'], true) ? $type : 'sites';
 $paginator = new Paginator();
 $fieldFormatter = new FieldFormatter();
+$rankingSettings = loadRankingSettings($con);
 $page = $paginator->normalizePage(isset($_GET['page']) ? (int) $_GET['page'] : 1);
 
 $pageSize = match ($type) {
@@ -35,12 +39,16 @@ $pageSize = match ($type) {
 };
 
 $searchPage = match ($type) {
-    'images' => (new ImageSearchService(new ImageRepository($con), $paginator))->search($term, $page, $pageSize),
-    'videos' => (new VideoSearchService(new VideoRepository($con), $paginator))->search($term, $page, $pageSize),
-    default => (new SearchService(new SiteRepository($con), $paginator))->search($term, $page, $pageSize),
+    'images' => (new ImageSearchService(new ImageRepository($con, $rankingSettings), $paginator))
+        ->search($term, $page, $pageSize),
+    'videos' => (new VideoSearchService(new VideoRepository($con, $rankingSettings), $paginator))
+        ->search($term, $page, $pageSize),
+    default => (new SearchService(new SiteRepository($con, $rankingSettings), $paginator))
+        ->search($term, $page, $pageSize),
 };
 
 $numResults = $searchPage->total;
+recordSearchAnalytics($con, $term, $type, $numResults, $page);
 $resultsHtml = match ($type) {
     'images' => renderImageResults($searchPage->results),
     'videos' => renderVideoResults($searchPage->results, $fieldFormatter),
@@ -55,6 +63,47 @@ function h(string $value): string
 function queryTerm(string $term): string
 {
     return rawurlencode($term);
+}
+
+function loadRankingSettings(PDO $pdo): RankingSettings
+{
+    try {
+        return (new RankingSettingsRepository($pdo))->load();
+    } catch (Throwable $throwable) {
+        return new RankingSettings();
+    }
+}
+
+function recordSearchAnalytics(PDO $pdo, string $term, string $type, int $resultCount, int $page): void
+{
+    try {
+        (new SearchAnalyticsRepository($pdo))->record(
+            term: $term,
+            type: $type,
+            resultCount: $resultCount,
+            page: $page,
+            ipHash: requestHash(serverString('REMOTE_ADDR')),
+            userAgentHash: requestHash(serverString('HTTP_USER_AGENT')),
+        );
+    } catch (Throwable $throwable) {
+        return;
+    }
+}
+
+function requestHash(string $value): string
+{
+    return $value === '' ? '' : hash('sha256', $value);
+}
+
+function serverString(string $key): string
+{
+    $value = $_SERVER[$key] ?? '';
+
+    if (!is_scalar($value)) {
+        return '';
+    }
+
+    return (string) $value;
 }
 
 /**

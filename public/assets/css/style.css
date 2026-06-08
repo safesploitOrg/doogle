@@ -475,6 +475,113 @@ Crawl form
 	width:400px;
 }
 
+/*********
+Admin
+**********/
+.adminHeader
+{
+	justify-content: space-between;
+	border-bottom: 1px solid #ebebeb;
+	padding-right: 24px;
+}
+
+.adminNav
+{
+	display: flex;
+	gap: 16px;
+	align-items: center;
+}
+
+.adminNav a,
+.rankingTabs a
+{
+	color: #1a0dab;
+	text-decoration: none;
+	font-size: 14px;
+}
+
+.adminNav a:hover,
+.rankingTabs a:hover
+{
+	text-decoration: underline;
+}
+
+.adminSection .siteResults
+{
+	max-width: 1100px;
+	margin-top: 28px;
+	margin-right: 24px;
+}
+
+.adminSection h2
+{
+	margin: 0 0 14px 0;
+	font-size: 22px;
+	font-weight: normal;
+	color: #202124;
+}
+
+.adminSection h3
+{
+	margin: 26px 0 10px 0;
+	font-size: 16px;
+	color: #202124;
+}
+
+.adminTable
+{
+	width: 100%;
+	border-collapse: collapse;
+	margin-bottom: 16px;
+	font-size: 13px;
+}
+
+.adminTable th,
+.adminTable td
+{
+	text-align: left;
+	border-bottom: 1px solid #e5e5e5;
+	padding: 9px 8px;
+	vertical-align: top;
+}
+
+.adminTable th
+{
+	color: #202124;
+	font-weight: bold;
+	background: #fafafa;
+}
+
+.rankingTabs
+{
+	display: flex;
+	gap: 14px;
+	margin-bottom: 14px;
+}
+
+.rankingTabs a.active
+{
+	color: #1A73E8;
+	font-weight: bold;
+}
+
+.rankingForm button
+{
+	color: #fff;
+	background: #1A73E8;
+	border: none;
+	border-radius: 4px;
+	padding: 9px 14px;
+	cursor: pointer;
+}
+
+.rankingWeights input
+{
+	width: 90px;
+	padding: 6px;
+	box-sizing: border-box;
+}
+
 
 /*
 Mobile responsive design -- Overrides

@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Doogle\Tests\Integration\Repository;
 
 use Doogle\Repository\SiteRepository;
+use Doogle\Search\RankingSettings;
 use PDO;
 use PHPUnit\Framework\TestCase;
 
@@ -85,6 +86,29 @@ final class SiteRepositoryTest extends TestCase
         self::assertSame('https://example.com/exact', $results[0]['url']);
         self::assertSame('https://example.com/clicked', $results[1]['url']);
         self::assertGreaterThan((float) $results[1]['rankingScore'], (float) $results[0]['rankingScore']);
+    }
+
+    public function testSearchCanUseCustomRankingWeights(): void
+    {
+        $this->insertSite('https://example.com/title', 'Linux Security Guide', 'Hardening notes', 'security', 1);
+        $this->insertSite(
+            'https://example.com/description',
+            'Security Notes',
+            'Linux hardening checklist',
+            'security',
+            1
+        );
+
+        $repository = new SiteRepository(
+            $this->pdo,
+            new RankingSettings([
+                RankingSettings::settingKey('sites', 'description_partial') => 500,
+            ])
+        );
+
+        $results = $repository->search('linux', 0, 20);
+
+        self::assertSame('https://example.com/description', $results[0]['url']);
     }
 
     public function testSearchAppliesOffsetAndLimit(): void

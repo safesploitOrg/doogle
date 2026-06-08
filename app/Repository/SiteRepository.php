@@ -5,15 +5,18 @@ declare(strict_types=1);
 namespace Doogle\Repository;
 
 use Doogle\Search\RankingExpression;
+use Doogle\Search\RankingSettings;
 use PDO;
 use PDOStatement;
 
 final class SiteRepository implements SiteSearchRepository
 {
     private const SITE_FULL_TEXT_COLUMNS = 'title, description, keywords, url';
+    private readonly RankingSettings $rankingSettings;
 
-    public function __construct(private readonly PDO $pdo)
+    public function __construct(private readonly PDO $pdo, ?RankingSettings $rankingSettings = null)
     {
+        $this->rankingSettings = $rankingSettings ?? new RankingSettings();
     }
 
     public function countBySearchTerm(string $term): int
@@ -83,15 +86,16 @@ final class SiteRepository implements SiteSearchRepository
 
     private function siteRankingSql(): string
     {
+        $weights = $this->rankingSettings->weightsFor('sites');
         $scores = [
-            RankingExpression::weightedEquals('title', ':rankTitleExactTerm', 240),
-            RankingExpression::weightedLike('title', ':rankTitleTerm', 100),
-            RankingExpression::weightedLike('keywords', ':rankKeywordsTerm', 60),
-            RankingExpression::weightedLike('description', ':rankDescriptionTerm', 35),
-            RankingExpression::weightedLike('url', ':rankUrlTerm', 25),
-            RankingExpression::httpsUrl('url', 5),
-            RankingExpression::nonEmpty('title', 5),
-            RankingExpression::nonEmpty('description', 3),
+            RankingExpression::weightedEquals('title', ':rankTitleExactTerm', $weights['title_exact']),
+            RankingExpression::weightedLike('title', ':rankTitleTerm', $weights['title_partial']),
+            RankingExpression::weightedLike('keywords', ':rankKeywordsTerm', $weights['keywords_partial']),
+            RankingExpression::weightedLike('description', ':rankDescriptionTerm', $weights['description_partial']),
+            RankingExpression::weightedLike('url', ':rankUrlTerm', $weights['url_partial']),
+            RankingExpression::httpsUrl('url', $weights['https_url']),
+            RankingExpression::nonEmpty('title', $weights['title_present']),
+            RankingExpression::nonEmpty('description', $weights['description_present']),
             RankingExpression::boundedClickBoost(),
         ];
 
@@ -101,8 +105,8 @@ final class SiteRepository implements SiteSearchRepository
                 RankingExpression::boundedMysqlFullTextBoost(
                     self::SITE_FULL_TEXT_COLUMNS,
                     ':rankFullTextTerm',
-                    50,
-                    120
+                    $this->rankingSettings->fullTextWeight(),
+                    $this->rankingSettings->fullTextCap()
                 )
             );
         }

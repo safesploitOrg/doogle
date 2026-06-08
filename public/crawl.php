@@ -158,6 +158,7 @@ function crawlRateLimitIdentity(?int $userId): string
 				URL: <input type="url" name="url" required="required" id="crawl-input" value="<?php echo h($submittedUrl); ?>">
 				<button type="submit">Crawl</button>
 			</form>
+			<a href="ranking.php">Ranking</a>
 			<a href="logout.php">Logout</a>
 		</div>
 	</div>

@@ -5,15 +5,18 @@ declare(strict_types=1);
 namespace Doogle\Repository;
 
 use Doogle\Search\RankingExpression;
+use Doogle\Search\RankingSettings;
 use PDO;
 use PDOStatement;
 
 final class ImageRepository implements ImageSearchRepository
 {
     private const IMAGE_FULL_TEXT_COLUMNS = 'title, alt, imageUrl';
+    private readonly RankingSettings $rankingSettings;
 
-    public function __construct(private readonly PDO $pdo)
+    public function __construct(private readonly PDO $pdo, ?RankingSettings $rankingSettings = null)
     {
+        $this->rankingSettings = $rankingSettings ?? new RankingSettings();
     }
 
     public function countBySearchTerm(string $term): int
@@ -92,15 +95,16 @@ final class ImageRepository implements ImageSearchRepository
 
     private function imageRankingSql(): string
     {
+        $weights = $this->rankingSettings->weightsFor('images');
         $scores = [
-            RankingExpression::weightedEquals('title', ':rankTitleExactTerm', 220),
-            RankingExpression::weightedEquals('alt', ':rankAltExactTerm', 180),
-            RankingExpression::weightedLike('title', ':rankTitleTerm', 100),
-            RankingExpression::weightedLike('alt', ':rankAltTerm', 75),
-            RankingExpression::weightedLike('imageUrl', ':rankImageUrlTerm', 25),
-            RankingExpression::httpsUrl('imageUrl', 3),
-            RankingExpression::nonEmpty('alt', 5),
-            RankingExpression::nonEmpty('title', 3),
+            RankingExpression::weightedEquals('title', ':rankTitleExactTerm', $weights['title_exact']),
+            RankingExpression::weightedEquals('alt', ':rankAltExactTerm', $weights['alt_exact']),
+            RankingExpression::weightedLike('title', ':rankTitleTerm', $weights['title_partial']),
+            RankingExpression::weightedLike('alt', ':rankAltTerm', $weights['alt_partial']),
+            RankingExpression::weightedLike('imageUrl', ':rankImageUrlTerm', $weights['image_url_partial']),
+            RankingExpression::httpsUrl('imageUrl', $weights['https_image_url']),
+            RankingExpression::nonEmpty('alt', $weights['alt_present']),
+            RankingExpression::nonEmpty('title', $weights['title_present']),
             RankingExpression::boundedClickBoost(),
         ];
 
@@ -110,8 +114,8 @@ final class ImageRepository implements ImageSearchRepository
                 RankingExpression::boundedMysqlFullTextBoost(
                     self::IMAGE_FULL_TEXT_COLUMNS,
                     ':rankFullTextTerm',
-                    50,
-                    120
+                    $this->rankingSettings->fullTextWeight(),
+                    $this->rankingSettings->fullTextCap()
                 )
             );
         }

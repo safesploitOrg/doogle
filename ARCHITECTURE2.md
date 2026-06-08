@@ -108,11 +108,19 @@ The next target layout is:
 │   ├── Repository/
 │   │   ├── ImageRepository.php
 │   │   ├── ImageSearchRepository.php
+│   │   ├── RankingSettingsRepository.php
+│   │   ├── SearchAnalyticsRepository.php
 │   │   ├── SiteRepository.php
 │   │   ├── SiteSearchRepository.php
 │   │   ├── VideoRepository.php
 │   │   └── VideoSearchRepository.php
 │   ├── Search/
+│   │   ├── RankingExpression.php
+│   │   ├── RankingSettings.php
+│   │   ├── RankingWeight.php
+│   │   ├── SearchAnalyticsEvent.php
+│   │   ├── SearchAnalyticsTerm.php
+│   │   └── SearchAnalyticsTypeSummary.php
 │   └── Security/
 │       ├── CrawlerSecurityPolicy.php
 │       ├── CsrfToken.php
@@ -140,6 +148,7 @@ The next target layout is:
 │   ├── login.php
 │   ├── logout.php
 │   ├── crawl.php
+│   ├── ranking.php
 │   ├── ajax/
 │   │   ├── setBroken.php
 │   │   ├── updateImageCount.php
@@ -189,6 +198,7 @@ public/
 ├── login.php
 ├── logout.php
 ├── crawl.php
+├── ranking.php
 ├── ajax/
 │   ├── setBroken.php
 │   ├── updateImageCount.php
@@ -1229,11 +1239,6 @@ Ranking by result type:
 - Images prioritise exact/partial title, then alt text, image URL, HTTPS, and available title/alt text.
 - Videos prioritise exact/partial title, then description, video URL, site URL, HTTPS, thumbnail availability, and metadata completeness.
 
-Future optional work:
-
-- Search analytics beyond click telemetry.
-- Authenticated admin ranking settings for viewing/tuning ranking weights.
-
 Acceptance criteria:
 
 - all search verticals use the same ranking model shape
@@ -1241,6 +1246,30 @@ Acceptance criteria:
 - quality signals are included
 - ranking order is deterministic
 - repository tests cover ranking behaviour
+
+### Phase K - Search Analytics And Admin Ranking Controls
+
+Goal: make search quality observable and allow authenticated admins to tune the
+existing ranking weights without changing the default ranking behaviour.
+
+Tasks:
+
+- add `search_queries` table and migration
+- record public site/image/video searches with term, vertical, page, result count, and hashed request identifiers
+- add `ranking_settings` table and migration
+- load ranking weight overrides from the database with safe defaults when the migration is absent
+- add admin-only `/ranking.php`
+- show search analytics by vertical, top terms, zero-result terms, and recent searches
+- allow admins to update per-vertical ranking weights with CSRF protection
+- log ranking update/security events without secrets
+
+Acceptance criteria:
+
+- public search continues working if analytics/ranking tables are not migrated yet
+- default ranking weights match Phase J
+- saved ranking weights affect subsequent search results
+- only authenticated admins can view or update ranking controls
+- tests cover analytics persistence, ranking settings persistence, DTOs, and ranking behaviour
 
 ---
 
@@ -1258,7 +1287,7 @@ Acceptance criteria:
 - Keep crawler security policy enabled by default.
 - Apply baseline security headers at Nginx.
 - Rate limit login and crawl POST requests.
-- Log auth, crawl, CSRF, and rate-limit events without secrets.
+- Log auth, crawl, ranking, CSRF, and rate-limit events without secrets.
 
 ### 20.2 Session Cookie Settings
 

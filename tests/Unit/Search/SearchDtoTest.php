@@ -8,6 +8,9 @@ use Doogle\Search\ImageResult;
 use Doogle\Search\ImageSearchPage;
 use Doogle\Search\SearchPage;
 use Doogle\Search\SearchResult;
+use Doogle\Search\SearchAnalyticsEvent;
+use Doogle\Search\SearchAnalyticsTerm;
+use Doogle\Search\SearchAnalyticsTypeSummary;
 use Doogle\Search\VideoResult;
 use Doogle\Search\VideoSearchPage;
 use PHPUnit\Framework\TestCase;
@@ -122,6 +125,61 @@ final class SearchDtoTest extends TestCase
                 0
             ))->displayTitle()
         );
+    }
+
+    public function testSearchAnalyticsEventCanBeCreatedFromRepositoryRow(): void
+    {
+        $event = SearchAnalyticsEvent::fromRow([
+            'id' => '4',
+            'term' => 'linux',
+            'type' => 'sites',
+            'result_count' => '12',
+            'page' => '2',
+            'ip_hash' => str_repeat('a', 64),
+            'user_agent_hash' => str_repeat('b', 64),
+            'created_at' => '2026-06-08 12:00:00',
+        ]);
+
+        self::assertSame(4, $event->id);
+        self::assertSame('linux', $event->term);
+        self::assertSame('sites', $event->type);
+        self::assertSame(12, $event->resultCount);
+        self::assertSame(2, $event->page);
+        self::assertSame(str_repeat('a', 64), $event->ipHash);
+        self::assertSame(str_repeat('b', 64), $event->userAgentHash);
+        self::assertSame('2026-06-08 12:00:00', $event->createdAt);
+    }
+
+    public function testSearchAnalyticsTermCanBeCreatedFromRepositoryRow(): void
+    {
+        $term = SearchAnalyticsTerm::fromRow([
+            'term' => 'linux',
+            'type' => 'videos',
+            'searches' => '3',
+            'average_result_count' => '7.6',
+            'last_searched_at' => '2026-06-08 12:00:00',
+        ]);
+
+        self::assertSame('linux', $term->term);
+        self::assertSame('videos', $term->type);
+        self::assertSame(3, $term->searches);
+        self::assertSame(8, $term->averageResultCount);
+        self::assertSame('2026-06-08 12:00:00', $term->lastSearchedAt);
+    }
+
+    public function testSearchAnalyticsTypeSummaryCanBeCreatedFromRepositoryRow(): void
+    {
+        $summary = SearchAnalyticsTypeSummary::fromRow([
+            'type' => 'images',
+            'searches' => '5',
+            'zero_result_searches' => '2',
+            'average_result_count' => '11.2',
+        ]);
+
+        self::assertSame('images', $summary->type);
+        self::assertSame(5, $summary->searches);
+        self::assertSame(2, $summary->zeroResultSearches);
+        self::assertSame(11, $summary->averageResultCount);
     }
 
     public function testSearchPageCanRepresentEmptyResults(): void
