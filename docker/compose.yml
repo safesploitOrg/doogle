@@ -2,7 +2,7 @@ name: ${DOOGLE_COMPOSE_PROJECT:-doogle}
 
 services:
   web:
-    image: ${DOOGLE_NGINX_IMAGE:-nginx:1.27-alpine}
+    image: ${DOOGLE_NGINX_IMAGE:-nginx:1.31-alpine}
     depends_on:
       app:
         condition: service_started
@@ -54,7 +54,7 @@ services:
       - composer_vendor:/var/www/html/vendor
 
   mysql_db:
-    image: ${DOOGLE_MARIADB_IMAGE:-mariadb:11.4}
+    image: ${DOOGLE_MARIADB_IMAGE:-mariadb:11.8}
     environment:
       MARIADB_DATABASE: "${DB_DATABASE:-doogle}"
       MARIADB_USER: "${DB_USERNAME:-doogle}"
