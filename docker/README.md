@@ -8,6 +8,8 @@ The Docker helper scripts load the repository-level `.env` file when it exists,
 even when the script is run from inside the `docker/` directory.
 For manual `docker compose` commands, pass `--env-file ../.env` from inside the
 `docker/` directory or `--env-file .env` from the repository root.
+The helper scripts prefer Docker Compose v2 (`docker compose`) and fall back to
+legacy Docker Compose v1 (`docker-compose`) when needed.
 
 ## Build
 

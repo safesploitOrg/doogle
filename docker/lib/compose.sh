@@ -6,12 +6,38 @@ ENV_FILE="$PROJECT_ROOT/.env"
 
 docker_compose()
 {
+    if docker compose version >/dev/null 2>&1; then
+        docker_compose_v2 "$@"
+        return
+    fi
+
+    if command -v docker-compose >/dev/null 2>&1; then
+        docker_compose_v1 "$@"
+        return
+    fi
+
+    printf '%s\n' "Docker Compose is required. Install the Docker Compose v2 plugin or docker-compose v1." >&2
+    return 127
+}
+
+docker_compose_v2()
+{
     if [ -f "$ENV_FILE" ]; then
         docker compose --env-file "$ENV_FILE" -f "$COMPOSE_FILE" "$@"
         return
     fi
 
     docker compose -f "$COMPOSE_FILE" "$@"
+}
+
+docker_compose_v1()
+{
+    if [ -f "$ENV_FILE" ]; then
+        docker-compose --env-file "$ENV_FILE" -f "$COMPOSE_FILE" "$@"
+        return
+    fi
+
+    docker-compose -f "$COMPOSE_FILE" "$@"
 }
 
 env_value()
