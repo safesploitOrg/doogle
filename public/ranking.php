@@ -256,8 +256,8 @@ function renderWeightInputs(array $weights): string
     <meta name="keywords" content="Search engine, doogle, websites">
     <meta name="author" content="Zepher Ashe">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <link rel="icon" type="image/x-icon" href="assets/images/favicon/favicon.ico">
-    <link rel="stylesheet" type="text/css" href="assets/css/style.css">
+    <link rel="icon" type="image/x-icon" href="/assets/images/favicon/favicon.ico">
+    <link rel="stylesheet" type="text/css" href="/assets/css/style.css?v=admin-20260616">
 </head>
 <body class="adminBody">
     <div class="adminApp">
