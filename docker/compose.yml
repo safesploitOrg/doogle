@@ -1,4 +1,4 @@
-name: ${DOOGLE_COMPOSE_PROJECT:-doogle}
+version: "2.4"
 
 services:
   web:

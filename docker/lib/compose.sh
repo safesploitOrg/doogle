@@ -22,22 +22,26 @@ docker_compose()
 
 docker_compose_v2()
 {
+    project_name=$(env_value DOOGLE_COMPOSE_PROJECT doogle)
+
     if [ -f "$ENV_FILE" ]; then
-        docker compose --env-file "$ENV_FILE" -f "$COMPOSE_FILE" "$@"
+        docker compose --env-file "$ENV_FILE" -p "$project_name" -f "$COMPOSE_FILE" "$@"
         return
     fi
 
-    docker compose -f "$COMPOSE_FILE" "$@"
+    docker compose -p "$project_name" -f "$COMPOSE_FILE" "$@"
 }
 
 docker_compose_v1()
 {
+    project_name=$(env_value DOOGLE_COMPOSE_PROJECT doogle)
+
     if [ -f "$ENV_FILE" ]; then
-        docker-compose --env-file "$ENV_FILE" -f "$COMPOSE_FILE" "$@"
+        docker-compose --env-file "$ENV_FILE" -p "$project_name" -f "$COMPOSE_FILE" "$@"
         return
     fi
 
-    docker-compose -f "$COMPOSE_FILE" "$@"
+    docker-compose -p "$project_name" -f "$COMPOSE_FILE" "$@"
 }
 
 env_value()
