@@ -407,6 +407,10 @@ full admin session created
 TOTP setup is managed from authenticated `/security.php`, protected by CSRF,
 and renders a local SVG QR code plus the manual secret. Failed TOTP checks are
 rate limited separately from password checks with `DOOGLE_TOTP_*` settings.
+Disabling TOTP requires the current password.
+
+Authenticated admins may change their password from `/security.php`. The
+current password must verify before a new password hash is stored.
 
 Lockout recovery is trusted CLI-only:
 
@@ -1359,6 +1363,9 @@ Tasks:
 - add admin-only `/security.php`
 - require TOTP after username/password only when enabled
 - rate limit TOTP verification attempts separately from password attempts
+- require current password before password changes
+- require current password before disabling TOTP
+- rate limit security-page password confirmation attempts
 - add trusted CLI lockout recovery with `bin/admin-reset-totp`
 - add Docker wrapper `docker/admin-reset-totp.sh`
 - record successful and failed admin login attempts
@@ -1369,6 +1376,8 @@ Acceptance criteria:
 - enabled admins must pass password and TOTP before reaching the dashboard
 - repeated bad TOTP attempts are rate limited
 - admins can enable/disable TOTP after login
+- password changes require the existing password
+- disabling TOTP requires the existing password
 - CLI reset clears TOTP for a named admin
 - admin security page shows recent successful and failed login events
 - tests cover TOTP service, QR rendering, session challenge state, repositories, and legacy schema fallbacks
@@ -1389,6 +1398,7 @@ Acceptance criteria:
 - Keep crawler security policy enabled by default.
 - Apply baseline security headers at Nginx.
 - Rate limit login and crawl POST requests.
+- Rate limit password confirmation attempts for security-page actions.
 - Rate limit TOTP verification attempts.
 - Log auth, crawl, ranking, TOTP, CSRF, and rate-limit events without secrets.
 
@@ -1427,6 +1437,8 @@ Rate limiting uses **IP-based identification** with a sliding time window stored
 
 **For login requests**: rate limit by `IP + username` to prevent brute force attacks on a single account from a specific IP.
 
+**For password confirmation requests**: rate limit by `IP + user ID` before security-page password changes or TOTP disable.
+
 **For TOTP requests**: rate limit by `IP + user ID` after a successful username/password check.
 
 **For crawl requests**: rate limit by `user ID` (if authenticated) or `IP` (if unauthenticated).
@@ -1440,6 +1452,8 @@ Defaults:
 ```env
 DOOGLE_LOGIN_RATE_LIMIT_ATTEMPTS=10
 DOOGLE_LOGIN_RATE_LIMIT_WINDOW=60
+DOOGLE_PASSWORD_CONFIRM_RATE_LIMIT_ATTEMPTS=10
+DOOGLE_PASSWORD_CONFIRM_RATE_LIMIT_WINDOW=60
 DOOGLE_TOTP_RATE_LIMIT_ATTEMPTS=6
 DOOGLE_TOTP_RATE_LIMIT_WINDOW=60
 DOOGLE_CRAWL_RATE_LIMIT_ATTEMPTS=5

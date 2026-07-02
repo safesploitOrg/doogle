@@ -131,6 +131,9 @@ value.
 TOTP is optional per admin account. Existing admins continue to use
 username/password login until they enable it.
 
+The security page also lets an authenticated admin change their password. The
+current password is required before the password is changed.
+
 Enable TOTP:
 
 1. Log in at http://localhost:8000/login.php.
@@ -141,7 +144,7 @@ Enable TOTP:
 
 After TOTP is enabled, login requires a successful username/password check and
 then a valid TOTP code. TOTP verification is rate limited separately from
-password login attempts.
+password login attempts. Disabling TOTP also requires the current password.
 
 If an admin is locked out, clear TOTP from the trusted CLI:
 
@@ -279,6 +282,8 @@ DOOGLE_SECURITY_LOG=/var/log/doogle/security.log
 DOOGLE_RATE_LIMIT_DIR=/tmp/doogle-rate-limits
 DOOGLE_LOGIN_RATE_LIMIT_ATTEMPTS=10
 DOOGLE_LOGIN_RATE_LIMIT_WINDOW=60
+DOOGLE_PASSWORD_CONFIRM_RATE_LIMIT_ATTEMPTS=10
+DOOGLE_PASSWORD_CONFIRM_RATE_LIMIT_WINDOW=60
 DOOGLE_TOTP_RATE_LIMIT_ATTEMPTS=6
 DOOGLE_TOTP_RATE_LIMIT_WINDOW=60
 DOOGLE_CRAWL_RATE_LIMIT_ATTEMPTS=5
@@ -292,13 +297,15 @@ container.
 
 ## Rate Limiting
 
-Login, TOTP, and crawl POST requests are rate limited to prevent brute force and abuse.
+Login, password confirmation, TOTP, and crawl POST requests are rate limited to prevent brute force and abuse.
 
 ### How It Works
 
 Rate limiting is **IP-based** and uses a sliding time window stored in local files.
 
 For **login requests**: rate limit by `IP + username` (prevents brute force on a single account from a specific IP).
+
+For **password confirmation requests**: rate limit by `IP + user ID` for security-page password changes and TOTP disable.
 
 For **TOTP requests**: rate limit by `IP + user ID` after a successful username/password check.
 
@@ -446,9 +453,10 @@ It also deletes search analytics and ranking setting overrides.
 
 - Browser crawl requires an authenticated admin.
 - Admin TOTP is optional, enabled per account, and checked after a valid password.
+- Admin password changes and TOTP disable actions require the current password.
 - Admin login attempts are recorded in `admin_login_events`.
 - Browser crawl POST requires CSRF validation.
-- Login, TOTP, and crawl POST requests are rate limited.
+- Login, password confirmation, TOTP, and crawl POST requests are rate limited.
 - Auth, TOTP, crawl, and ranking security events are logged.
 - CLI crawl is trusted local/container execution, not public HTTP access.
 - Private/reserved network crawling is blocked by default.

@@ -4,9 +4,11 @@ declare(strict_types=1);
 
 use Doogle\Auth\AdminLoginEvent;
 use Doogle\Auth\AdminLoginEventRepository;
+use Doogle\Auth\AuthService;
 use Doogle\Auth\QrCodeSvg;
 use Doogle\Auth\SessionAuth;
 use Doogle\Auth\TotpService;
+use Doogle\Auth\User;
 use Doogle\Auth\UserRepository;
 use Doogle\Security\CsrfToken;
 use Doogle\Security\RateLimiter;
@@ -34,8 +36,10 @@ $csrf = new CsrfToken($_SESSION);
 $csrfToken = $csrf->token();
 $logger = SecurityEventLogger::fromEnvironment();
 $users = new UserRepository($con);
+$authService = new AuthService($users);
 $totp = new TotpService();
 $totpRateLimiter = RateLimiter::fromEnvironment('totp');
+$passwordConfirmRateLimiter = RateLimiter::fromEnvironment('password_confirm');
 $qrCode = new QrCodeSvg();
 $message = '';
 $error = '';
@@ -83,7 +87,30 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $error = 'TOTP storage is unavailable. Run migration 006.';
         }
     } elseif ($action === 'disable_totp') {
-        if ($users->clearTotp($currentUser->id)) {
+        $currentPassword = (string) ($_POST['current_password'] ?? '');
+        $decision = $passwordConfirmRateLimiter->attempt(
+            'password_confirm',
+            passwordConfirmRateLimitIdentity($currentUser->id)
+        );
+
+        if (!$decision->allowed) {
+            http_response_code(429);
+            header('Retry-After: ' . $decision->retryAfterSeconds);
+            $error = 'Too many password confirmation attempts. Try again shortly.';
+            $logger->log('security.password_confirm_rate_limited', [
+                'user_id' => $currentUser->id,
+                'remote_addr' => requestIp(),
+                'action' => 'disable_totp',
+                'retry_after_seconds' => $decision->retryAfterSeconds,
+            ]);
+        } elseif (!currentPasswordIsValid($authService, $currentUser, $currentPassword)) {
+            $error = 'Current password is incorrect.';
+            $logger->log('security.totp_disable_failed', [
+                'user_id' => $currentUser->id,
+                'remote_addr' => requestIp(),
+                'reason' => 'invalid_current_password',
+            ]);
+        } elseif ($users->clearTotp($currentUser->id)) {
             unset($_SESSION['totp_setup_secret']);
             $setupSecret = '';
             $message = 'TOTP disabled.';
@@ -93,6 +120,45 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             ]);
         } else {
             $error = 'TOTP storage is unavailable. Run migration 006.';
+        }
+    } elseif ($action === 'change_password') {
+        $currentPassword = (string) ($_POST['current_password'] ?? '');
+        $newPassword = (string) ($_POST['new_password'] ?? '');
+        $confirmPassword = (string) ($_POST['confirm_password'] ?? '');
+        $decision = $passwordConfirmRateLimiter->attempt(
+            'password_confirm',
+            passwordConfirmRateLimitIdentity($currentUser->id)
+        );
+
+        if (!$decision->allowed) {
+            http_response_code(429);
+            header('Retry-After: ' . $decision->retryAfterSeconds);
+            $error = 'Too many password confirmation attempts. Try again shortly.';
+            $logger->log('security.password_confirm_rate_limited', [
+                'user_id' => $currentUser->id,
+                'remote_addr' => requestIp(),
+                'action' => 'change_password',
+                'retry_after_seconds' => $decision->retryAfterSeconds,
+            ]);
+        } elseif (!currentPasswordIsValid($authService, $currentUser, $currentPassword)) {
+            $error = 'Current password is incorrect.';
+            $logger->log('security.password_change_failed', [
+                'user_id' => $currentUser->id,
+                'remote_addr' => requestIp(),
+                'reason' => 'invalid_current_password',
+            ]);
+        } elseif (strlen($newPassword) < 4) {
+            $error = 'New password must be at least 4 characters.';
+        } elseif ($newPassword !== $confirmPassword) {
+            $error = 'New password confirmation does not match.';
+        } elseif ($users->updatePassword($currentUser->id, $newPassword)) {
+            $message = 'Password changed.';
+            $logger->log('security.password_changed', [
+                'user_id' => $currentUser->id,
+                'remote_addr' => requestIp(),
+            ]);
+        } else {
+            $error = 'Password could not be changed.';
         }
     }
 }
@@ -132,6 +198,20 @@ function requestIp(): string
 function totpSetupRateLimitIdentity(int $userId): string
 {
     return requestIp() . ':setup:' . $userId;
+}
+
+function passwordConfirmRateLimitIdentity(int $userId): string
+{
+    return requestIp() . ':password:' . $userId;
+}
+
+function currentPasswordIsValid(AuthService $authService, User $currentUser, string $password): bool
+{
+    $verifiedUser = $authService->authenticate($currentUser->username, $password);
+
+    return $verifiedUser !== null
+        && $verifiedUser->id === $currentUser->id
+        && $verifiedUser->role === 'admin';
 }
 
 /**
@@ -215,6 +295,35 @@ function renderLoginEvents(array $events): string
             <section class="adminPanel">
                 <div class="adminPanelHeader">
                     <div>
+                        <h2>Password</h2>
+                        <p>Change the password for <?php echo h($currentUser->username); ?>.</p>
+                    </div>
+                </div>
+
+                <form class="adminForm adminStackedForm" action="security.php" method="post">
+                    <input type="hidden" name="csrf_token" value="<?php echo h($csrfToken); ?>">
+                    <input type="hidden" name="action" value="change_password">
+                    <div class="adminFieldGrid">
+                        <div class="adminField">
+                            <label for="password-current">Current password</label>
+                            <input id="password-current" type="password" name="current_password" autocomplete="current-password" required>
+                        </div>
+                        <div class="adminField">
+                            <label for="password-new">New password</label>
+                            <input id="password-new" type="password" name="new_password" autocomplete="new-password" minlength="4" required>
+                        </div>
+                        <div class="adminField">
+                            <label for="password-confirm">Confirm new password</label>
+                            <input id="password-confirm" type="password" name="confirm_password" autocomplete="new-password" minlength="4" required>
+                        </div>
+                    </div>
+                    <button class="adminPrimaryButton" type="submit">Change password</button>
+                </form>
+            </section>
+
+            <section class="adminPanel">
+                <div class="adminPanelHeader">
+                    <div>
                         <h2>Two-factor authentication</h2>
                         <p>Status: <?php echo $totpEnabled ? 'enabled' : 'disabled'; ?></p>
                     </div>
@@ -226,9 +335,13 @@ function renderLoginEvents(array $events): string
                 </div>
 
                 <?php if ($totpEnabled): ?>
-                    <form class="adminForm" action="security.php" method="post">
+                    <form class="adminForm adminStackedForm" action="security.php" method="post">
                         <input type="hidden" name="csrf_token" value="<?php echo h($csrfToken); ?>">
                         <input type="hidden" name="action" value="disable_totp">
+                        <div class="adminField">
+                            <label for="totp-disable-current-password">Current password</label>
+                            <input id="totp-disable-current-password" type="password" name="current_password" autocomplete="current-password" required>
+                        </div>
                         <button class="adminSecondaryButton" type="submit">Disable TOTP</button>
                     </form>
                 <?php elseif ($setupSecret === ''): ?>

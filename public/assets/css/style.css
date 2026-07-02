@@ -695,6 +695,24 @@ Admin
 	font-weight: bold;
 }
 
+.adminStackedForm
+{
+	display: grid;
+	gap: 14px;
+}
+
+.adminFieldGrid
+{
+	display: grid;
+	grid-template-columns: repeat(3, minmax(0, 1fr));
+	gap: 12px;
+}
+
+.adminField
+{
+	min-width: 0;
+}
+
 .adminInputRow
 {
 	display: grid;
@@ -704,6 +722,7 @@ Admin
 }
 
 .adminInputRow input,
+.adminField input,
 .adminSelect,
 .rankingWeights input
 {
@@ -719,6 +738,7 @@ Admin
 }
 
 .adminInputRow input:focus,
+.adminField input:focus,
 .adminSelect:focus,
 .rankingWeights input:focus
 {
@@ -1119,6 +1139,7 @@ Mobile responsive design -- Overrides
 	.adminStatGrid,
 	.adminMetricStrip,
 	.adminAnalyticsGrid,
+	.adminFieldGrid,
 	.totpSetupGrid
 	{
 		grid-template-columns: 1fr;

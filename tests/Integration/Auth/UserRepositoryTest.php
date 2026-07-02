@@ -58,6 +58,19 @@ final class UserRepositoryTest extends TestCase
         self::assertArrayHasKey('password', $row);
     }
 
+    public function testUpdatePasswordReplacesStoredHash(): void
+    {
+        $id = $this->repository->create('admin', 'admin@example.com', 'plain-password', 'admin');
+
+        self::assertTrue($this->repository->updatePassword($id, 'new-password'));
+
+        $row = $this->repository->findByUsername('admin');
+
+        self::assertIsArray($row);
+        self::assertFalse(password_verify('plain-password', (string) $row['password']));
+        self::assertTrue(password_verify('new-password', (string) $row['password']));
+    }
+
     public function testFindByIdReturnsUserWithoutPasswordHash(): void
     {
         $id = $this->repository->create('admin', 'admin@example.com', 'plain-password', 'admin');

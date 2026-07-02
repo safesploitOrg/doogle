@@ -101,6 +101,8 @@ the old MySQL volume, reset local Docker data before testing the split runtime.
 - Session cookies are HTTP-only, SameSite `Lax`, and can be made secure with
   `SESSION_COOKIE_SECURE=true` when HTTPS is terminated in front of the app.
 - Login and crawl POST requests are rate limited by default.
+- Security-page password confirmations are rate limited before password
+  changes or TOTP disable actions.
 - TOTP verification is rate limited separately when an admin enables it.
 - Auth and crawl security events are written to `/var/log/doogle/security.log`
   inside the app container.

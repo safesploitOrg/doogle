@@ -116,6 +116,20 @@ final class UserRepository
         return (int) $this->pdo->lastInsertId();
     }
 
+    public function updatePassword(int $id, string $plainPassword): bool
+    {
+        $statement = $this->pdo->prepare(
+            'UPDATE users
+             SET password = :password
+             WHERE id = :id'
+        );
+
+        return $statement->execute([
+            ':id' => $id,
+            ':password' => password_hash($plainPassword, PASSWORD_DEFAULT),
+        ]);
+    }
+
     public function isTotpEnabled(int $id): bool
     {
         if (!$this->hasTotpColumns()) {
