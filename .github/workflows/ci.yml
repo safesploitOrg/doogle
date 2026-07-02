@@ -96,14 +96,29 @@ jobs:
           sudo mv gitleaks /usr/local/bin/gitleaks
           gitleaks version
 
+      # Detect → Report → Block
       - name: Run Gitleaks
-        run: gitleaks detect --source . --redact --report-format sarif --report-path gitleaks-results.sarif
+        id: gitleaks
+        continue-on-error: true
+        run: |
+          gitleaks detect \
+            --source . \
+            --redact \
+            --report-format sarif \
+            --report-path gitleaks-results.sarif
 
       - name: Upload Gitleaks SARIF
+        if: always()
         uses: github/codeql-action/upload-sarif@v4
         with:
           sarif_file: gitleaks-results.sarif
-          
+
+      - name: Fail if Gitleaks found leaks
+        if: steps.gitleaks.outcome == 'failure'
+        run: |
+          echo "Gitleaks found secrets. Failing the workflow."
+          exit 1
+                
       # Avoiding the action and run the open-source CLI directly
       # - name: Run Gitleaks
       #   uses: gitleaks/gitleaks-action@v3
