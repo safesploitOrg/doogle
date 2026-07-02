@@ -103,6 +103,7 @@ jobs:
         run: |
           gitleaks detect \
             --source . \
+            --config .gitleaks.toml \
             --redact \
             --report-format sarif \
             --report-path gitleaks-results.sarif
