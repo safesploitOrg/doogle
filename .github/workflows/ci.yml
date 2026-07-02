@@ -15,19 +15,19 @@ permissions:
   contents: read
 
 jobs:
-  test:
+  quality:
     runs-on: ubuntu-latest
 
     steps:
       - name: Checkout
         uses: actions/checkout@v5
 
-      - name: Setup PHP
-        uses: shivammathur/setup-php@v2
-        with:
-          php-version: '8.4'
-          extensions: dom, pdo, pdo_sqlite
-          coverage: none
+      # - name: Setup PHP
+      #   uses: shivammathur/setup-php@v2
+      #   with:
+      #     php-version: '8.4'
+      #     extensions: dom, pdo, pdo_sqlite
+      #     coverage: none
 
       - name: Validate Composer metadata
         run: composer validate --strict
@@ -47,9 +47,23 @@ jobs:
       - name: Run code style
         run: composer lint
 
-        #===========================================
-        # SBOM generation and upload
-        # ===========================================
+
+  sbom:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v5
+
+      - name: Setup PHP
+        uses: shivammathur/setup-php@v2
+        with:
+          php-version: '8.4'
+          extensions: dom, pdo, pdo_sqlite
+          coverage: none
+
+      #===========================================
+      # SBOM generation and upload
+      # ===========================================
       - name: Generate SBOM
         run: composer sbom
 
@@ -73,6 +87,7 @@ jobs:
   security:
     runs-on: ubuntu-latest
     permissions:
+      actions: read
       contents: read
       security-events: write
 
@@ -114,11 +129,11 @@ jobs:
         with:
           sarif_file: gitleaks-results.sarif
 
-      - name: Fail if Gitleaks found leaks
-        if: steps.gitleaks.outcome == 'failure'
-        run: |
-          echo "Gitleaks found secrets. Failing the workflow."
-          exit 1
+      # - name: Fail if Gitleaks found leaks
+      #   if: steps.gitleaks.outcome == 'failure'
+      #   run: |
+      #     echo "Gitleaks found secrets. Failing the workflow."
+      #     exit 1
                 
       # Avoiding the action and run the open-source CLI directly
       # - name: Run Gitleaks
@@ -131,6 +146,8 @@ jobs:
       # and upload results as SARIF for GitHub code scanning alerts
       # ============================================================
       - name: Run Trivy filesystem scan
+        id: trivy
+        continue-on-error: true
         uses: aquasecurity/trivy-action@v0.36.0
         with:
           scan-type: fs
@@ -143,10 +160,28 @@ jobs:
           # exit-code: '1' # Exit with code 1 if vulnerabilities are found, but continue to upload results
 
       - name: Upload Trivy SARIF
+        if: always()
         uses: github/codeql-action/upload-sarif@v4
         with:
           sarif_file: trivy-results.sarif
 
+      # ==============================================================
+      # Final security gate
+      # ==============================================================
+      - name: ❌⛓️‍💥 Fail if security findings were detected
+        if: steps.gitleaks.outcome == 'failure' || steps.trivy.outcome == 'failure'
+        run: |
+          echo "Security findings detected. Failing the workflow."
+
+          if [ "${{ steps.gitleaks.outcome }}" = "failure" ]; then
+            echo "- Gitleaks found secrets."
+          fi
+
+          if [ "${{ steps.trivy.outcome }}" = "failure" ]; then
+            echo "- Trivy found HIGH or CRITICAL vulnerabilities."
+          fi
+
+          exit 1
 
   # Docker-based integration tests are currently disabled
   # docker:
