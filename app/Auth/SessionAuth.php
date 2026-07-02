@@ -59,6 +59,31 @@ final class SessionAuth
         }
 
         $this->session['user'] = $user->toSessionArray();
+        unset($this->session['pending_totp_user']);
+    }
+
+    public function beginTotpChallenge(User $user): void
+    {
+        $this->start();
+        $this->session['pending_totp_user'] = $user->toSessionArray();
+    }
+
+    public function pendingTotpUser(): ?User
+    {
+        $this->start();
+        $user = $this->session['pending_totp_user'] ?? null;
+
+        if (!is_array($user)) {
+            return null;
+        }
+
+        return User::fromRow($user);
+    }
+
+    public function clearTotpChallenge(): void
+    {
+        $this->start();
+        unset($this->session['pending_totp_user']);
     }
 
     public function user(): ?User
@@ -87,6 +112,7 @@ final class SessionAuth
     {
         $this->start();
         unset($this->session['user']);
+        unset($this->session['pending_totp_user']);
 
         if ($this->usesNativeSession && session_status() === PHP_SESSION_ACTIVE) {
             $this->clearNativeCookie();

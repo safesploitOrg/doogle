@@ -10,6 +10,7 @@ use RuntimeException;
 final class UserRepository
 {
     private ?bool $hasRoleColumn = null;
+    private ?bool $hasTotpColumns = null;
 
     public function __construct(private readonly PDO $pdo)
     {
@@ -21,8 +22,11 @@ final class UserRepository
     public function findByUsername(string $username): ?array
     {
         $roleSelect = $this->hasRoleColumn() ? 'role' : "'admin' AS role";
+        $totpSelect = $this->hasTotpColumns()
+            ? 'totp_enabled, totp_secret'
+            : '0 AS totp_enabled, NULL AS totp_secret';
         $statement = $this->pdo->prepare(
-            'SELECT id, username, email, password, ' . $roleSelect . '
+            'SELECT id, username, email, password, ' . $roleSelect . ', ' . $totpSelect . '
              FROM users
              WHERE username = :username
              LIMIT 1'
@@ -112,22 +116,119 @@ final class UserRepository
         return (int) $this->pdo->lastInsertId();
     }
 
+    public function isTotpEnabled(int $id): bool
+    {
+        if (!$this->hasTotpColumns()) {
+            return false;
+        }
+
+        $statement = $this->pdo->prepare('SELECT totp_enabled FROM users WHERE id = :id LIMIT 1');
+        $statement->bindValue(':id', $id, PDO::PARAM_INT);
+        $statement->execute();
+
+        return (int) $statement->fetchColumn() === 1;
+    }
+
+    public function totpSecret(int $id): ?string
+    {
+        if (!$this->hasTotpColumns()) {
+            return null;
+        }
+
+        $statement = $this->pdo->prepare('SELECT totp_secret FROM users WHERE id = :id LIMIT 1');
+        $statement->bindValue(':id', $id, PDO::PARAM_INT);
+        $statement->execute();
+        $secret = $statement->fetchColumn();
+
+        return is_string($secret) && $secret !== '' ? $secret : null;
+    }
+
+    public function enableTotp(int $id, string $secret): bool
+    {
+        if (!$this->hasTotpColumns()) {
+            return false;
+        }
+
+        $statement = $this->pdo->prepare(
+            'UPDATE users
+             SET totp_secret = :totp_secret,
+                 totp_enabled = 1,
+                 totp_confirmed_at = CURRENT_TIMESTAMP
+             WHERE id = :id'
+        );
+
+        return $statement->execute([
+            ':id' => $id,
+            ':totp_secret' => $secret,
+        ]);
+    }
+
+    public function clearTotp(int $id): bool
+    {
+        if (!$this->hasTotpColumns()) {
+            return false;
+        }
+
+        $statement = $this->pdo->prepare(
+            'UPDATE users
+             SET totp_secret = NULL,
+                 totp_enabled = 0,
+                 totp_confirmed_at = NULL
+             WHERE id = :id'
+        );
+
+        return $statement->execute([':id' => $id]);
+    }
+
+    public function clearTotpForUsername(string $username): bool
+    {
+        if (!$this->hasTotpColumns()) {
+            return false;
+        }
+
+        $statement = $this->pdo->prepare(
+            'UPDATE users
+             SET totp_secret = NULL,
+                 totp_enabled = 0,
+                 totp_confirmed_at = NULL
+             WHERE username = :username'
+        );
+
+        return $statement->execute([':username' => $username]);
+    }
+
     private function hasRoleColumn(): bool
     {
         if ($this->hasRoleColumn !== null) {
             return $this->hasRoleColumn;
         }
 
+        return $this->hasRoleColumn = $this->hasColumn('role');
+    }
+
+    private function hasTotpColumns(): bool
+    {
+        if ($this->hasTotpColumns !== null) {
+            return $this->hasTotpColumns;
+        }
+
+        return $this->hasTotpColumns = $this->hasColumn('totp_enabled')
+            && $this->hasColumn('totp_secret')
+            && $this->hasColumn('totp_confirmed_at');
+    }
+
+    private function hasColumn(string $columnName): bool
+    {
         if ($this->pdo->getAttribute(PDO::ATTR_DRIVER_NAME) === 'sqlite') {
             $columns = $this->pdo->query('PRAGMA table_info(users)')->fetchAll(PDO::FETCH_ASSOC);
 
             foreach ($columns as $column) {
-                if (($column['name'] ?? null) === 'role') {
-                    return $this->hasRoleColumn = true;
+                if (($column['name'] ?? null) === $columnName) {
+                    return true;
                 }
             }
 
-            return $this->hasRoleColumn = false;
+            return false;
         }
 
         $statement = $this->pdo->prepare(
@@ -140,9 +241,9 @@ final class UserRepository
 
         $statement->execute([
             ':tableName' => 'users',
-            ':columnName' => 'role',
+            ':columnName' => $columnName,
         ]);
 
-        return $this->hasRoleColumn = (int) $statement->fetchColumn() > 0;
+        return (int) $statement->fetchColumn() > 0;
     }
 }

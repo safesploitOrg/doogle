@@ -992,6 +992,51 @@ Admin
 	min-width: 0;
 }
 
+.totpSetupGrid
+{
+	display: grid;
+	grid-template-columns: auto minmax(0, 1fr);
+	gap: 22px;
+	align-items: start;
+}
+
+.totpQrCode
+{
+	width: 205px;
+	min-height: 205px;
+	padding: 10px;
+	background: #ffffff;
+	border: 1px solid #e2e8f0;
+	border-radius: 8px;
+}
+
+.totpQrCode svg
+{
+	display: block;
+	width: 100%;
+	height: auto;
+}
+
+.totpSecret
+{
+	display: inline-block;
+	max-width: 100%;
+	margin-top: 8px;
+	padding: 10px 12px;
+	color: #0f172a;
+	background: #f8fafc;
+	border: 1px solid #e2e8f0;
+	border-radius: 8px;
+	font-size: 13px;
+	line-height: 1.5;
+	overflow-wrap: anywhere;
+}
+
+.totpConfirmForm
+{
+	margin-top: 16px;
+}
+
 
 /*
 Mobile responsive design -- Overrides
@@ -1073,12 +1118,19 @@ Mobile responsive design -- Overrides
 
 	.adminStatGrid,
 	.adminMetricStrip,
-	.adminAnalyticsGrid
+	.adminAnalyticsGrid,
+	.totpSetupGrid
 	{
 		grid-template-columns: 1fr;
 	}
 
-	.adminPrimaryButton
+	.totpQrCode
+	{
+		width: min(205px, calc(100% - 22px));
+	}
+
+	.adminPrimaryButton,
+	.adminSecondaryButton
 	{
 		width: 100%;
 	}

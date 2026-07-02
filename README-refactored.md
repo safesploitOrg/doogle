@@ -25,6 +25,7 @@ Completed from `ARCHITECTURE2.md`:
 - Phase I: Videos Search Vertical
 - Phase J: Search Ranking
 - Phase K: Search Analytics And Admin Ranking Controls
+- Phase L: Admin TOTP And Login Audit
 
 Key changes now in place:
 
@@ -36,6 +37,7 @@ Key changes now in place:
 - Ranking uses a shared deterministic formula with capped click/full-text boosts and per-vertical quality signals.
 - Public searches are recorded in `search_queries` with hashed request identifiers for admin analytics.
 - Admins can view analytics and tune per-vertical ranking weights at `/ranking.php`.
+- Admins can enable optional TOTP and view successful/failed admin login events at `/security.php`.
 - Browser crawling requires an admin login and CSRF token.
 - CLI crawling does not require a browser session, but still enforces crawler safety policy.
 - Web and CLI crawl jobs are stored in `crawl_jobs` and shown on the authenticated crawl page.
@@ -70,6 +72,7 @@ Open:
 - Doogle search: http://localhost:8000
 - Admin crawl page: http://localhost:8000/crawl.php
 - Admin ranking page: http://localhost:8000/ranking.php
+- Admin security page: http://localhost:8000/security.php
 - phpMyAdmin: http://localhost:8081
 
 Default local database details without a `.env` override:
@@ -122,6 +125,38 @@ DOOGLE_ADMIN_PASSWORD='change-this-password' ./docker/create-admin.sh admin admi
 
 Do not store plaintext passwords in SQL. The command stores a `password_hash()`
 value.
+
+## Admin TOTP And Login Events
+
+TOTP is optional per admin account. Existing admins continue to use
+username/password login until they enable it.
+
+Enable TOTP:
+
+1. Log in at http://localhost:8000/login.php.
+2. Open http://localhost:8000/security.php.
+3. Select `Set up TOTP`.
+4. Scan the QR code with an authenticator app, or enter the displayed secret.
+5. Enter a six-digit code to confirm.
+
+After TOTP is enabled, login requires a successful username/password check and
+then a valid TOTP code. TOTP verification is rate limited separately from
+password login attempts.
+
+If an admin is locked out, clear TOTP from the trusted CLI:
+
+```sh
+php bin/admin-reset-totp admin
+```
+
+Or inside Docker:
+
+```sh
+./docker/admin-reset-totp.sh admin
+```
+
+The same security page shows recent successful and failed admin login attempts,
+including date/time, username, status, failure reason, and IP address.
 
 ## Running Search
 
@@ -244,6 +279,8 @@ DOOGLE_SECURITY_LOG=/var/log/doogle/security.log
 DOOGLE_RATE_LIMIT_DIR=/tmp/doogle-rate-limits
 DOOGLE_LOGIN_RATE_LIMIT_ATTEMPTS=10
 DOOGLE_LOGIN_RATE_LIMIT_WINDOW=60
+DOOGLE_TOTP_RATE_LIMIT_ATTEMPTS=6
+DOOGLE_TOTP_RATE_LIMIT_WINDOW=60
 DOOGLE_CRAWL_RATE_LIMIT_ATTEMPTS=5
 DOOGLE_CRAWL_RATE_LIMIT_WINDOW=60
 ```
@@ -255,13 +292,15 @@ container.
 
 ## Rate Limiting
 
-Login and crawl POST requests are rate limited to prevent brute force and abuse.
+Login, TOTP, and crawl POST requests are rate limited to prevent brute force and abuse.
 
 ### How It Works
 
 Rate limiting is **IP-based** and uses a sliding time window stored in local files.
 
 For **login requests**: rate limit by `IP + username` (prevents brute force on a single account from a specific IP).
+
+For **TOTP requests**: rate limit by `IP + user ID` after a successful username/password check.
 
 For **crawl requests**: rate limit by `user ID` (authenticated) or `IP` (unauthenticated).
 
@@ -287,6 +326,7 @@ database/migrations/002_update_users_auth_schema.sql
 database/migrations/003_create_crawl_jobs.sql
 database/migrations/004_add_video_search.sql
 database/migrations/005_create_search_analytics.sql
+database/migrations/006_add_admin_totp_and_login_events.sql
 ```
 
 Apply a migration to the Docker database:
@@ -295,6 +335,7 @@ Apply a migration to the Docker database:
 docker compose -f docker/compose.yml exec -T mysql_db mysql -uroot -proot doogle < database/migrations/003_create_crawl_jobs.sql
 docker compose -f docker/compose.yml exec -T mysql_db mysql -uroot -proot doogle < database/migrations/004_add_video_search.sql
 docker compose -f docker/compose.yml exec -T mysql_db mysql -uroot -proot doogle < database/migrations/005_create_search_analytics.sql
+docker compose -f docker/compose.yml exec -T mysql_db mysql -uroot -proot doogle < database/migrations/006_add_admin_totp_and_login_events.sql
 ```
 
 For non-Docker MySQL, apply the same SQL files with your normal MySQL client.
@@ -381,9 +422,11 @@ Important commands:
 
 ```text
 bin/create-admin      Create or confirm an admin user
+bin/admin-reset-totp  Clear TOTP for an admin user
 bin/crawl             Run a trusted CLI crawl
 docker/up.sh          Start Docker stack
 docker/down.sh        Stop Docker stack
+docker/admin-reset-totp.sh  Clear admin TOTP inside Docker
 docker/crawl.sh       Run CLI crawl inside Docker app container
 docker/test.sh        Run Composer checks inside Docker
 ```
@@ -402,9 +445,11 @@ It also deletes search analytics and ranking setting overrides.
 ## Security Defaults
 
 - Browser crawl requires an authenticated admin.
+- Admin TOTP is optional, enabled per account, and checked after a valid password.
+- Admin login attempts are recorded in `admin_login_events`.
 - Browser crawl POST requires CSRF validation.
-- Login and crawl POST requests are rate limited.
-- Auth, crawl, and ranking security events are logged.
+- Login, TOTP, and crawl POST requests are rate limited.
+- Auth, TOTP, crawl, and ranking security events are logged.
 - CLI crawl is trusted local/container execution, not public HTTP access.
 - Private/reserved network crawling is blocked by default.
 - Passwords are hashed with `password_hash()`.

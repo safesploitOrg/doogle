@@ -2,7 +2,9 @@
 declare(strict_types=1);
 
 use Doogle\Auth\AuthService;
+use Doogle\Auth\AdminLoginEventRepository;
 use Doogle\Auth\SessionAuth;
+use Doogle\Auth\TotpService;
 use Doogle\Auth\UserRepository;
 use Doogle\Security\RateLimiter;
 use Doogle\Security\SecurityEventLogger;
@@ -14,6 +16,10 @@ $sessionAuth = new SessionAuth();
 $sessionAuth->start();
 $logger = SecurityEventLogger::fromEnvironment();
 $rateLimiter = RateLimiter::fromEnvironment('login');
+$totpRateLimiter = RateLimiter::fromEnvironment('totp');
+$users = new UserRepository($con);
+$loginEvents = new AdminLoginEventRepository($con);
+$totp = new TotpService();
 
 if ($sessionAuth->isAdmin()) {
 	header('Location: crawl.php');
@@ -22,41 +28,103 @@ if ($sessionAuth->isAdmin()) {
 
 $error = '';
 $username = '';
+$pendingTotpUser = $sessionAuth->pendingTotpUser();
+$showTotpForm = $pendingTotpUser !== null;
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
+	$step = (string) ($_POST['step'] ?? 'password');
 	$username = trim((string) ($_POST['username'] ?? ''));
 	$password = (string) ($_POST['password'] ?? '');
-	$decision = $rateLimiter->attempt('login', rateLimitIdentity($username));
 
-	if (!$decision->allowed) {
-		http_response_code(429);
-		header('Retry-After: ' . $decision->retryAfterSeconds);
-		$logger->log('auth.rate_limited', [
-			'username' => $username,
-			'remote_addr' => requestIp(),
-			'retry_after_seconds' => $decision->retryAfterSeconds,
-		]);
-		$error = 'Too many login attempts. Try again shortly.';
-	} else {
-		$authService = new AuthService(new UserRepository($con));
-		$user = $authService->authenticate($username, $password);
+	if ($step === 'totp') {
+		$pendingTotpUser = $sessionAuth->pendingTotpUser();
+		$showTotpForm = true;
 
-		if ($user !== null && $user->role === 'admin') {
-			$sessionAuth->login($user);
-			$logger->log('auth.login', [
-				'user_id' => $user->id,
-				'username' => $user->username,
-				'remote_addr' => requestIp(),
-			]);
-			header('Location: crawl.php');
-			exit;
+		if ($pendingTotpUser === null) {
+			$error = 'Login expired. Enter your username and password again.';
+			$showTotpForm = false;
+			$sessionAuth->clearTotpChallenge();
+		} else {
+			$decision = $totpRateLimiter->attempt('totp', totpRateLimitIdentity($pendingTotpUser->id));
+
+			if (!$decision->allowed) {
+				http_response_code(429);
+				header('Retry-After: ' . $decision->retryAfterSeconds);
+				recordAdminLoginEvent($loginEvents, $pendingTotpUser->username, $pendingTotpUser->id, false, 'totp_rate_limited');
+				$error = 'Too many verification attempts. Try again shortly.';
+			} else {
+				$secret = $users->totpSecret($pendingTotpUser->id);
+				$code = (string) ($_POST['totp_code'] ?? '');
+
+				if ($secret !== null && $totp->verify($secret, $code)) {
+					$sessionAuth->login($pendingTotpUser);
+					recordAdminLoginEvent($loginEvents, $pendingTotpUser->username, $pendingTotpUser->id, true, '');
+					$logger->log('auth.login', [
+						'user_id' => $pendingTotpUser->id,
+						'username' => $pendingTotpUser->username,
+						'remote_addr' => requestIp(),
+						'totp' => true,
+					]);
+					header('Location: crawl.php');
+					exit;
+				}
+
+				recordAdminLoginEvent($loginEvents, $pendingTotpUser->username, $pendingTotpUser->id, false, 'totp');
+				$logger->log('auth.totp_failed', [
+					'user_id' => $pendingTotpUser->id,
+					'username' => $pendingTotpUser->username,
+					'remote_addr' => requestIp(),
+				]);
+				$error = 'Invalid verification code.';
+			}
 		}
+	} else {
+		$decision = $rateLimiter->attempt('login', rateLimitIdentity($username));
 
-		$logger->log('auth.failed', [
-			'username' => $username,
-			'remote_addr' => requestIp(),
-		]);
-		$error = 'Invalid username or password.';
+		if (!$decision->allowed) {
+			http_response_code(429);
+			header('Retry-After: ' . $decision->retryAfterSeconds);
+			recordAdminLoginEvent($loginEvents, $username, null, false, 'password_rate_limited');
+			$logger->log('auth.rate_limited', [
+				'username' => $username,
+				'remote_addr' => requestIp(),
+				'retry_after_seconds' => $decision->retryAfterSeconds,
+			]);
+			$error = 'Too many login attempts. Try again shortly.';
+		} else {
+			$authService = new AuthService($users);
+			$user = $authService->authenticate($username, $password);
+
+			if ($user !== null && $user->role === 'admin') {
+				if ($users->isTotpEnabled($user->id)) {
+					$sessionAuth->beginTotpChallenge($user);
+					$pendingTotpUser = $user;
+					$showTotpForm = true;
+					$logger->log('auth.totp_required', [
+						'user_id' => $user->id,
+						'username' => $user->username,
+						'remote_addr' => requestIp(),
+					]);
+				} else {
+					$sessionAuth->login($user);
+					recordAdminLoginEvent($loginEvents, $user->username, $user->id, true, '');
+					$logger->log('auth.login', [
+						'user_id' => $user->id,
+						'username' => $user->username,
+						'remote_addr' => requestIp(),
+					]);
+					header('Location: crawl.php');
+					exit;
+				}
+			} else {
+				recordAdminLoginEvent($loginEvents, $username, null, false, 'password');
+				$logger->log('auth.failed', [
+					'username' => $username,
+					'remote_addr' => requestIp(),
+				]);
+				$error = 'Invalid username or password.';
+			}
+		}
 	}
 }
 
@@ -73,6 +141,25 @@ function requestIp(): string
 function rateLimitIdentity(string $username): string
 {
 	return requestIp() . ':' . strtolower($username);
+}
+
+function totpRateLimitIdentity(int $userId): string
+{
+	return requestIp() . ':user:' . $userId;
+}
+
+function recordAdminLoginEvent(
+	AdminLoginEventRepository $events,
+	string $username,
+	?int $userId,
+	bool $successful,
+	string $failureReason,
+): void {
+	try {
+		$events->record($username, $userId, $successful, $failureReason, requestIp());
+	} catch (Throwable $throwable) {
+		return;
+	}
 }
 ?>
 
@@ -98,11 +185,20 @@ function rateLimitIdentity(string $username): string
 					<p class="resultsCount"><?php echo h($error); ?></p>
 				<?php endif; ?>
 
-				<form action="login.php" method="POST">
-					<input class="searchBox" type="text" name="username" value="<?php echo h($username); ?>" autocomplete="username" placeholder="Username" required>
-					<input class="searchBox" type="password" name="password" autocomplete="current-password" placeholder="Password" required>
-					<input class="searchButton" type="submit" value="Login">
-				</form>
+				<?php if ($showTotpForm): ?>
+					<form action="login.php" method="POST">
+						<input type="hidden" name="step" value="totp">
+						<input class="searchBox" type="text" name="totp_code" autocomplete="one-time-code" inputmode="numeric" pattern="[0-9]{6}" placeholder="Verification code" required>
+						<input class="searchButton" type="submit" value="Verify">
+					</form>
+				<?php else: ?>
+					<form action="login.php" method="POST">
+						<input type="hidden" name="step" value="password">
+						<input class="searchBox" type="text" name="username" value="<?php echo h($username); ?>" autocomplete="username" placeholder="Username" required>
+						<input class="searchBox" type="password" name="password" autocomplete="current-password" placeholder="Password" required>
+						<input class="searchButton" type="submit" value="Login">
+					</form>
+				<?php endif; ?>
 			</div>
 		</div>
 	</div>

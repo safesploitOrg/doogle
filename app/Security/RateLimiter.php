@@ -23,7 +23,11 @@ final class RateLimiter
     public static function fromEnvironment(string $scope): self
     {
         $upperScope = strtoupper($scope);
-        $defaultMaxAttempts = $scope === 'crawl' ? 5 : 10;
+        $defaultMaxAttempts = match ($scope) {
+            'crawl' => 5,
+            'totp' => 6,
+            default => 10,
+        };
 
         return new self(
             storageDirectory: (string) (getenv('DOOGLE_RATE_LIMIT_DIR') ?: sys_get_temp_dir() . '/doogle-rate-limits'),

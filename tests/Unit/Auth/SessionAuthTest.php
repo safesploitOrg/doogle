@@ -14,7 +14,14 @@ final class SessionAuthTest extends TestCase
 {
     public function testLoginStoresMinimalUserDataInSession(): void
     {
-        $session = [];
+        $session = [
+            'pending_totp_user' => [
+                'id' => 99,
+                'username' => 'pending',
+                'email' => 'pending@example.com',
+                'role' => 'admin',
+            ],
+        ];
         $auth = new SessionAuth($session);
 
         $auth->login(new User(1, 'admin', 'admin@example.com', 'admin'));
@@ -28,6 +35,7 @@ final class SessionAuthTest extends TestCase
             ],
             $session['user']
         );
+        self::assertArrayNotHasKey('pending_totp_user', $session);
         self::assertTrue($auth->isAuthenticated());
         self::assertTrue($auth->isAdmin());
     }
@@ -96,9 +104,29 @@ final class SessionAuthTest extends TestCase
         $auth = new SessionAuth($session);
 
         $auth->login(new User(1, 'admin', 'admin@example.com', 'admin'));
+        $auth->beginTotpChallenge(new User(2, 'pending', 'pending@example.com', 'admin'));
         $auth->logout();
 
         self::assertArrayNotHasKey('user', $session);
+        self::assertArrayNotHasKey('pending_totp_user', $session);
         self::assertFalse($auth->isAuthenticated());
+    }
+
+    public function testTotpChallengeStoresAndClearsPendingUser(): void
+    {
+        $session = [];
+        $auth = new SessionAuth($session);
+
+        $auth->beginTotpChallenge(new User(1, 'admin', 'admin@example.com', 'admin'));
+
+        $pendingUser = $auth->pendingTotpUser();
+
+        self::assertInstanceOf(User::class, $pendingUser);
+        self::assertSame('admin', $pendingUser->username);
+
+        $auth->clearTotpChallenge();
+
+        self::assertNull($auth->pendingTotpUser());
+        self::assertArrayNotHasKey('pending_totp_user', $session);
     }
 }

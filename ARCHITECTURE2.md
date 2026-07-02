@@ -93,8 +93,12 @@ The next target layout is:
 .
 ├── app/
 │   ├── Auth/
+│   │   ├── AdminLoginEvent.php
+│   │   ├── AdminLoginEventRepository.php
 │   │   ├── AuthService.php
+│   │   ├── QrCodeSvg.php
 │   │   ├── SessionAuth.php
+│   │   ├── TotpService.php
 │   │   ├── User.php
 │   │   └── UserRepository.php
 │   ├── Crawl/
@@ -130,6 +134,7 @@ The next target layout is:
 │       ├── SecurityEventLogger.php
 │       └── SessionCookiePolicy.php
 ├── bin/
+│   ├── admin-reset-totp
 │   ├── crawl
 │   └── create-admin
 ├── database/
@@ -138,6 +143,7 @@ The next target layout is:
 │   ├── nginx/
 │   ├── php/
 │   ├── compose.yml
+│   ├── admin-reset-totp.sh
 │   ├── crawl.sh
 │   ├── test.sh
 │   ├── up.sh
@@ -149,6 +155,7 @@ The next target layout is:
 │   ├── logout.php
 │   ├── crawl.php
 │   ├── ranking.php
+│   ├── security.php
 │   ├── ajax/
 │   │   ├── setBroken.php
 │   │   ├── updateImageCount.php
@@ -199,6 +206,7 @@ public/
 ├── logout.php
 ├── crawl.php
 ├── ranking.php
+├── security.php
 ├── ajax/
 │   ├── setBroken.php
 │   ├── updateImageCount.php
@@ -274,6 +282,9 @@ Authentication authorises a user to request a crawl. It must not weaken crawler 
 | `/logout.php` | Yes | Session destruction |
 | `/crawl.php` GET | Yes | Admin crawl form |
 | `/crawl.php` POST | Yes + CSRF | Submit crawl request |
+| `/ranking.php` | Yes + CSRF for POST | Ranking controls and search analytics |
+| `/security.php` | Yes + CSRF for POST | TOTP setup and admin login events |
+| `php bin/admin-reset-totp <username>` | No web auth | Trusted CLI TOTP lockout recovery |
 | `php bin/crawl <url>` | No web auth | Trusted CLI crawl |
 | `./docker/crawl.sh <url>` | No web auth | Docker wrapper for CLI crawl |
 
@@ -289,8 +300,12 @@ The existing `users` table should become active and support admin login for brow
 
 ```text
 app/Auth/
+├── AdminLoginEvent.php
+├── AdminLoginEventRepository.php
 ├── AuthService.php
+├── QrCodeSvg.php
 ├── SessionAuth.php
+├── TotpService.php
 ├── User.php
 └── UserRepository.php
 ```
@@ -374,6 +389,36 @@ $_SESSION['user'] = [
 ];
 ```
 
+### 7.7 Optional TOTP
+
+Admins may enable TOTP after a normal username/password login. Once enabled,
+login becomes a two-step flow:
+
+```text
+username/password valid
+  ↓
+pending TOTP challenge stored in session
+  ↓
+six-digit TOTP code verified with rate limiting
+  ↓
+full admin session created
+```
+
+TOTP setup is managed from authenticated `/security.php`, protected by CSRF,
+and renders a local SVG QR code plus the manual secret. Failed TOTP checks are
+rate limited separately from password checks with `DOOGLE_TOTP_*` settings.
+
+Lockout recovery is trusted CLI-only:
+
+```bash
+php bin/admin-reset-totp admin
+./docker/admin-reset-totp.sh admin
+```
+
+Successful and failed admin login attempts are recorded in
+`admin_login_events` with date/time, username, status, failure reason, and IP
+address.
+
 ---
 
 ## 8. Users Table Design
@@ -387,6 +432,9 @@ CREATE TABLE IF NOT EXISTS users (
   email VARCHAR(255) NOT NULL,
   password VARCHAR(255) NOT NULL,
   role VARCHAR(50) NOT NULL DEFAULT 'admin',
+  totp_secret VARCHAR(64) DEFAULT NULL,
+  totp_enabled TINYINT(1) NOT NULL DEFAULT 0,
+  totp_confirmed_at TIMESTAMP NULL DEFAULT NULL,
   created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
   UNIQUE KEY unique_username (username),
   UNIQUE KEY unique_email (email)
@@ -399,17 +447,36 @@ CREATE TABLE IF NOT EXISTS users (
 - Use `password_hash()` for creation.
 - Use `password_verify()` for login.
 - `role = admin` is required for browser-based crawl access.
+- TOTP is optional per admin and is only required after it has been enabled and confirmed.
 - The first admin user can be created manually, via SQL, or via a one-off CLI helper.
 
-### 8.3 Future Optional CLI Admin Creation
+### 8.3 Admin Login Events
 
-Later command:
-
-```bash
-php bin/create-admin zepher zepher@example.com
+```sql
+CREATE TABLE admin_login_events (
+  id INT AUTO_INCREMENT PRIMARY KEY,
+  user_id INT NULL,
+  username VARCHAR(100) NOT NULL DEFAULT '',
+  successful TINYINT(1) NOT NULL DEFAULT 0,
+  failure_reason VARCHAR(100) NOT NULL DEFAULT '',
+  ip_address VARCHAR(45) NOT NULL DEFAULT '',
+  created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+  INDEX idx_admin_login_events_created_at (created_at),
+  INDEX idx_admin_login_events_username (username),
+  INDEX idx_admin_login_events_successful (successful),
+  INDEX idx_admin_login_events_user_id (user_id)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 ```
 
-This should prompt for a password and insert a hashed password into the users table.
+### 8.4 CLI Admin Creation
+
+Admin creation command:
+
+```bash
+DOOGLE_ADMIN_PASSWORD='password' php bin/create-admin zepher zepher@example.com
+```
+
+This inserts a hashed password into the users table.
 
 ---
 
@@ -910,6 +977,7 @@ docker compose -f "$COMPOSE_FILE" exec app php bin/crawl "$@"
 ./docker/up.sh
 ./docker/test.sh
 ./docker/crawl.sh https://example.com
+./docker/admin-reset-totp.sh admin
 ./docker/down.sh
 ```
 
@@ -931,6 +999,9 @@ CrawlResultTest
 CrawlServiceTest
 VideoSearchServiceTest
 VideoRepositoryTest
+TotpServiceTest
+QrCodeSvgTest
+AdminLoginEventRepositoryTest
 ```
 
 ### 18.2 Auth Tests
@@ -943,6 +1014,9 @@ Test:
 - session login stores expected user data
 - logout clears session
 - admin role check works
+- TOTP challenge stores only pending identity until code verification succeeds
+- TOTP known test vectors verify deterministically
+- admin login events are recorded for successful and failed attempts
 
 ### 18.3 CSRF Tests
 
@@ -1271,6 +1345,34 @@ Acceptance criteria:
 - only authenticated admins can view or update ranking controls
 - tests cover analytics persistence, ranking settings persistence, DTOs, and ranking behaviour
 
+### Phase L - Admin TOTP And Login Audit
+
+Goal: add optional second-factor protection for admin sessions and make admin
+login activity visible.
+
+Tasks:
+
+- add optional TOTP columns to `users`
+- add `admin_login_events` table and repository
+- add local TOTP secret generation and verification
+- add local SVG QR setup for authenticator apps
+- add admin-only `/security.php`
+- require TOTP after username/password only when enabled
+- rate limit TOTP verification attempts separately from password attempts
+- add trusted CLI lockout recovery with `bin/admin-reset-totp`
+- add Docker wrapper `docker/admin-reset-totp.sh`
+- record successful and failed admin login attempts
+
+Acceptance criteria:
+
+- existing admins can still log in without TOTP until they enable it
+- enabled admins must pass password and TOTP before reaching the dashboard
+- repeated bad TOTP attempts are rate limited
+- admins can enable/disable TOTP after login
+- CLI reset clears TOTP for a named admin
+- admin security page shows recent successful and failed login events
+- tests cover TOTP service, QR rendering, session challenge state, repositories, and legacy schema fallbacks
+
 ---
 
 ## 20. Security Requirements
@@ -1287,7 +1389,8 @@ Acceptance criteria:
 - Keep crawler security policy enabled by default.
 - Apply baseline security headers at Nginx.
 - Rate limit login and crawl POST requests.
-- Log auth, crawl, ranking, CSRF, and rate-limit events without secrets.
+- Rate limit TOTP verification attempts.
+- Log auth, crawl, ranking, TOTP, CSRF, and rate-limit events without secrets.
 
 ### 20.2 Session Cookie Settings
 
@@ -1324,6 +1427,8 @@ Rate limiting uses **IP-based identification** with a sliding time window stored
 
 **For login requests**: rate limit by `IP + username` to prevent brute force attacks on a single account from a specific IP.
 
+**For TOTP requests**: rate limit by `IP + user ID` after a successful username/password check.
+
 **For crawl requests**: rate limit by `user ID` (if authenticated) or `IP` (if unauthenticated).
 
 Each attempt is recorded with a timestamp. Attempts older than the configured time window are automatically pruned. When the number of recent attempts exceeds the configured limit, the request is rejected and includes a `Retry-After` response.
@@ -1335,6 +1440,8 @@ Defaults:
 ```env
 DOOGLE_LOGIN_RATE_LIMIT_ATTEMPTS=10
 DOOGLE_LOGIN_RATE_LIMIT_WINDOW=60
+DOOGLE_TOTP_RATE_LIMIT_ATTEMPTS=6
+DOOGLE_TOTP_RATE_LIMIT_WINDOW=60
 DOOGLE_CRAWL_RATE_LIMIT_ATTEMPTS=5
 DOOGLE_CRAWL_RATE_LIMIT_WINDOW=60
 DOOGLE_RATE_LIMIT_DIR=/tmp/doogle-rate-limits

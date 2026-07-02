@@ -168,6 +168,7 @@ function crawlRateLimitIdentity(?int $userId): string
 				<a href="index.php">Search</a>
 				<a class="active" href="crawl.php">Crawl</a>
 				<a href="ranking.php">Ranking</a>
+				<a href="security.php">Security</a>
 				<a href="logout.php">Logout</a>
 			</nav>
 		</header>

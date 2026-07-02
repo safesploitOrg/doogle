@@ -83,6 +83,25 @@ CREATE TABLE IF NOT EXISTS `users` (
   `email` varchar(255) NOT NULL,
   `password` varchar(255) NOT NULL,
   `role` varchar(50) NOT NULL DEFAULT 'admin',
+  `totp_secret` varchar(64) DEFAULT NULL,
+  `totp_enabled` tinyint(1) NOT NULL DEFAULT '0',
+  `totp_confirmed_at` timestamp NULL DEFAULT NULL,
+  `created_at` timestamp DEFAULT CURRENT_TIMESTAMP
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+-- --------------------------------------------------------
+
+--
+-- Table structure for table `admin_login_events`
+--
+
+CREATE TABLE IF NOT EXISTS `admin_login_events` (
+  `id` int(11) NOT NULL,
+  `user_id` int(11) DEFAULT NULL,
+  `username` varchar(100) NOT NULL DEFAULT '',
+  `successful` tinyint(1) NOT NULL DEFAULT '0',
+  `failure_reason` varchar(100) NOT NULL DEFAULT '',
+  `ip_address` varchar(45) NOT NULL DEFAULT '',
   `created_at` timestamp DEFAULT CURRENT_TIMESTAMP
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 
@@ -172,6 +191,16 @@ ALTER TABLE `users`
   ADD UNIQUE KEY `unique_email` (`email`);
 
 --
+-- Indexes for table `admin_login_events`
+--
+ALTER TABLE `admin_login_events`
+  ADD PRIMARY KEY (`id`),
+  ADD KEY `idx_admin_login_events_created_at` (`created_at`),
+  ADD KEY `idx_admin_login_events_username` (`username`),
+  ADD KEY `idx_admin_login_events_successful` (`successful`),
+  ADD KEY `idx_admin_login_events_user_id` (`user_id`);
+
+--
 -- Indexes for table `crawl_jobs`
 --
 ALTER TABLE `crawl_jobs`
@@ -222,6 +251,12 @@ ALTER TABLE `sites`
 --
 ALTER TABLE `users`
   MODIFY `id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=1382;
+
+--
+-- AUTO_INCREMENT for table `admin_login_events`
+--
+ALTER TABLE `admin_login_events`
+  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT;
 
 --
 -- AUTO_INCREMENT for table `crawl_jobs`
