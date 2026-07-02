@@ -22,12 +22,12 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v5
 
-      # - name: Setup PHP
-      #   uses: shivammathur/setup-php@v2
-      #   with:
-      #     php-version: '8.4'
-      #     extensions: dom, pdo, pdo_sqlite
-      #     coverage: none
+      - name: Setup PHP
+        uses: shivammathur/setup-php@v2
+        with:
+          php-version: '8.4'
+          extensions: dom, pdo, pdo_sqlite
+          coverage: none
 
       - name: Validate Composer metadata
         run: composer validate --strict
@@ -47,20 +47,8 @@ jobs:
       - name: Run code style
         run: composer lint
 
-
-  sbom:
-    runs-on: ubuntu-latest
-    steps:
-      - name: Checkout
-        uses: actions/checkout@v5
-
-      - name: Setup PHP
-        uses: shivammathur/setup-php@v2
-        with:
-          php-version: '8.4'
-          extensions: dom, pdo, pdo_sqlite
-          coverage: none
-
+          # Eventually move SBOM into separate workflow
+          # and depend on quality workflow to ensure SBOM is generated only after quality checks pass.
       #===========================================
       # SBOM generation and upload
       # ===========================================
