@@ -1,0 +1,14 @@
+title = "Doogle Gitleaks Configuration"
+
+[allowlist]
+description = "Allow known public dummy TOTP unit test fixtures only"
+
+regexes = [
+  '''GEZDGNBVGY3TQOJQGEZDGNBVGY3TQOJQ''',
+  '''ABCDEFGHIJKLMNOPQRSTUVWXYZ234567''',
+  '''ABCDEF234567''',
+]
+
+paths = [
+  '''tests/Unit/Auth/TotpServiceTest\.php'''
+]

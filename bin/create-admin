@@ -1,0 +1,67 @@
+#!/usr/bin/env php
+<?php
+
+declare(strict_types=1);
+
+use Doogle\Auth\UserRepository;
+use Doogle\Database\ConnectionFactory;
+
+require_once dirname(__DIR__) . '/vendor/autoload.php';
+
+if (PHP_SAPI !== 'cli') {
+    fwrite(STDERR, "This command can only be run from the CLI.\n");
+    exit(1);
+}
+
+$username = trim((string) ($argv[1] ?? ''));
+$email = trim((string) ($argv[2] ?? ''));
+$password = (string) ($argv[3] ?? getenv('DOOGLE_ADMIN_PASSWORD') ?: '');
+
+if ($username === '' || $email === '' || $password === '') {
+    fwrite(
+        STDERR,
+        "Usage: DOOGLE_ADMIN_PASSWORD='password' php bin/create-admin <username> <email>\n"
+        . "   or: php bin/create-admin <username> <email> <password>\n"
+    );
+    exit(1);
+}
+
+if (!filter_var($email, FILTER_VALIDATE_EMAIL)) {
+    fwrite(STDERR, "Invalid email address.\n");
+    exit(1);
+}
+
+if (strlen($password) < 4) {
+    fwrite(STDERR, "Admin password must be at least 4 characters.\n");
+    exit(1);
+}
+
+try {
+    $pdo = ConnectionFactory::fromProjectRoot(dirname(__DIR__))->create();
+    $users = new UserRepository($pdo);
+
+    $existingUser = $users->findByUsername($username);
+
+    if ($existingUser !== null) {
+        if (($existingUser['role'] ?? 'admin') !== 'admin') {
+            fwrite(STDERR, "User already exists but is not an admin: {$username}\n");
+            exit(1);
+        }
+
+        fwrite(STDOUT, "Admin user already exists: {$username}\n");
+        exit(0);
+    }
+
+    if ($users->findByEmail($email) !== null) {
+        fwrite(STDERR, "A user with this email already exists: {$email}\n");
+        exit(1);
+    }
+
+    $id = $users->create($username, $email, $password, 'admin');
+
+    fwrite(STDOUT, "Created admin user {$username} with ID {$id}.\n");
+    exit(0);
+} catch (Throwable $throwable) {
+    fwrite(STDERR, "Failed to create admin user: {$throwable->getMessage()}\n");
+    exit(3);
+}

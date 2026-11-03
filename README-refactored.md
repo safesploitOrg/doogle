@@ -1,0 +1,472 @@
+# Doogle Refactored
+
+Doogle is a PHP/MySQL search engine and crawler. This branch modernises the
+original application incrementally rather than rewriting it.
+
+The current branch has two supported crawl paths:
+
+- authenticated browser crawl at `/crawl.php`
+- trusted CLI crawl through `bin/crawl` or `docker/crawl.sh`
+
+Public search remains unauthenticated.
+
+## Current Status
+
+Completed from `ARCHITECTURE2.md`:
+
+- Phase A: Public Web Root
+- Phase B: Auth Layer
+- Phase C: Login / Logout
+- Phase D: Authenticated Web Crawl
+- Phase E: CLI Crawl
+- Phase F: Legacy Removal
+- Phase G: Crawl Jobs / History
+- Phase H: Production Hardening
+- Phase I: Videos Search Vertical
+- Phase J: Search Ranking
+- Phase K: Search Analytics And Admin Ranking Controls
+- Phase L: Admin TOTP And Login Audit
+
+Key changes now in place:
+
+- Composer, PSR-4 autoloading, PHPUnit, PHPStan, PHPCS, and SBOM generation.
+- Runtime web files live under `public/`; Docker serves them through Nginx with PHP-FPM.
+- `app/` contains auth, crawl, database, repository, search, and security classes.
+- Legacy root `crawl.php`, root `crawl-manual.php`, and `classes/` have been removed.
+- Search uses repositories, services, DTOs, full-text indexes, relevance ranking, and bounded click boost for sites, images, and videos.
+- Ranking uses a shared deterministic formula with capped click/full-text boosts and per-vertical quality signals.
+- Public searches are recorded in `search_queries` with hashed request identifiers for admin analytics.
+- Admins can view analytics and tune per-vertical ranking weights at `/ranking.php`.
+- Admins can enable optional TOTP and view successful/failed admin login events at `/security.php`.
+- Browser crawling requires an admin login and CSRF token.
+- CLI crawling does not require a browser session, but still enforces crawler safety policy.
+- Web and CLI crawl jobs are stored in `crawl_jobs` and shown on the authenticated crawl page.
+- Crawling indexes page metadata, images, and video references/embeds when safe URLs are discovered.
+- The Docker runtime uses Nginx, PHP-FPM, MariaDB, non-root PHP execution, baseline security headers, rate limiting, and auth/crawl event logging.
+
+## Quick Start With Docker
+
+Docker is the preferred local workflow.
+
+Docker helper scripts load the repository-level `.env` file when it exists.
+For manual `docker compose` commands, pass `--env-file .env` when you want the
+same values.
+
+Start the app and create an initial admin user:
+
+```sh
+DOOGLE_ADMIN_PASSWORD='change-this-password' ./docker/up.sh
+```
+
+Optional admin overrides:
+
+```sh
+DOOGLE_ADMIN_USERNAME=admin \
+DOOGLE_ADMIN_EMAIL=admin@example.local \
+DOOGLE_ADMIN_PASSWORD='change-this-password' \
+./docker/up.sh
+```
+
+Open:
+
+- Doogle search: http://localhost:8000
+- Admin crawl page: http://localhost:8000/crawl.php
+- Admin ranking page: http://localhost:8000/ranking.php
+- Admin security page: http://localhost:8000/security.php
+- phpMyAdmin: http://localhost:8081
+
+Default local database details without a `.env` override:
+
+- Host from host machine: `localhost:3307`
+- Host from app container: `mysql_db:3306`
+- Database: `doogle`
+- User: `doogle`
+- Password: `doogle`
+- Root password: `root`
+
+Stop Docker:
+
+```sh
+./docker/down.sh
+```
+
+Reset the local Docker database volume and re-run schema bootstrap:
+
+```sh
+./docker/reset-db.sh --force
+```
+
+This deletes local Docker database data.
+
+## Admin Users
+
+Browser crawling requires an admin account.
+
+Create an admin locally:
+
+```sh
+DOOGLE_ADMIN_PASSWORD='change-this-password' php bin/create-admin admin admin@example.local
+```
+
+Or pass the password as the third argument:
+
+```sh
+php bin/create-admin admin admin@example.local change-this-password
+```
+
+Create or confirm an admin in a running Docker stack:
+
+```sh
+DOOGLE_ADMIN_PASSWORD='change-this-password' ./docker/create-admin.sh admin admin@example.local
+```
+
+`docker/up.sh` also creates the initial admin automatically when
+`DOOGLE_ADMIN_PASSWORD` is set.
+
+Do not store plaintext passwords in SQL. The command stores a `password_hash()`
+value.
+
+## Admin TOTP And Login Events
+
+TOTP is optional per admin account. Existing admins continue to use
+username/password login until they enable it.
+
+The security page also lets an authenticated admin change their password. The
+current password is required before the password is changed.
+
+Enable TOTP:
+
+1. Log in at http://localhost:8000/login.php.
+2. Open http://localhost:8000/security.php.
+3. Select `Set up TOTP`.
+4. Scan the QR code with an authenticator app, or enter the displayed secret.
+5. Enter a six-digit code to confirm.
+
+After TOTP is enabled, login requires a successful username/password check and
+then a valid TOTP code. TOTP verification is rate limited separately from
+password login attempts. Disabling TOTP also requires the current password.
+
+If an admin is locked out, clear TOTP from the trusted CLI:
+
+```sh
+php bin/admin-reset-totp admin
+```
+
+Or inside Docker:
+
+```sh
+./docker/admin-reset-totp.sh admin
+```
+
+The same security page shows recent successful and failed admin login attempts,
+including date/time, username, status, failure reason, and IP address.
+
+## Running Search
+
+Public search is available without login:
+
+```text
+http://localhost:8000/
+http://localhost:8000/search.php?term=example&type=sites
+http://localhost:8000/search.php?term=example&type=images
+http://localhost:8000/search.php?term=example&type=videos
+```
+
+Site search returns 20 results per page. Image search returns 30 results per
+page. Video search returns 24 results per page in a responsive thumbnail-card
+grid.
+
+Search analytics are recorded when `database/migrations/005_create_search_analytics.sql`
+has been applied. If the analytics table is not present, public search still
+renders normally.
+
+## Admin Ranking And Analytics
+
+The admin ranking page is available after login:
+
+```text
+http://localhost:8000/ranking.php
+```
+
+It shows search analytics by vertical, top terms, zero-result terms, and recent
+searches. Request IP and user-agent values are stored as SHA-256 hashes, not as
+raw values.
+
+The same page lets admins update per-vertical ranking weights for Sites, Images,
+and Videos. Default weights match Phase J; saved overrides are loaded by public
+search on the next request. Click boost and full-text boost caps remain fixed.
+
+## Crawling: Web UI
+
+Use the web UI when you want an authenticated browser workflow and crawl
+history.
+
+1. Start Docker:
+
+   ```sh
+   DOOGLE_ADMIN_PASSWORD='change-this-password' ./docker/up.sh
+   ```
+
+2. Open http://localhost:8000/login.php.
+
+3. Log in with the admin username/password.
+
+4. Open http://localhost:8000/crawl.php.
+
+5. Submit a URL.
+
+The crawl result and recent crawl history are shown on the same page. Web and
+CLI crawl history is stored in `crawl_jobs`.
+
+Crawling stores site results in `sites`, image results in `images`, and video
+results in `videos`. Video extraction currently covers common page metadata,
+`<video>`/`<source>` elements, direct video URLs, and known embedded video
+players. The same URL validation and private-network blocking applies before a
+video URL is stored.
+
+## Crawling: CLI
+
+Use the CLI when you want trusted local/container execution without a browser
+session.
+
+Local CLI:
+
+```sh
+php bin/crawl https://example.com
+```
+
+Docker CLI wrapper:
+
+```sh
+./docker/crawl.sh https://example.com
+```
+
+Exit codes:
+
+- `0`: crawl completed successfully
+- `1`: usage error or crawl failed
+- `2`: URL rejected by validation/security policy
+- `3`: database/configuration failure
+
+CLI crawling still blocks private/reserved networks by default and still uses
+the same crawler limits as the web UI. CLI crawl jobs are recorded with
+`requested_by_user_id = NULL` because they are not tied to a browser session.
+
+## Crawler Safety Settings
+
+Crawler settings can be provided through environment variables:
+
+```env
+CRAWLER_USER_AGENT=doogleBot/1.0
+CRAWLER_MAX_DEPTH=2
+CRAWLER_TIMEOUT_SECONDS=10
+CRAWLER_MAX_PAGES_PER_JOB=100
+CRAWLER_MAX_RESPONSE_BYTES=1048576
+CRAWLER_ALLOW_PRIVATE_NETWORKS=false
+```
+
+By default, private and reserved network targets such as `127.0.0.1`,
+`localhost`, RFC1918 ranges, and link-local ranges are rejected.
+
+## Production Hardening Settings
+
+The Docker stack now runs Nginx in front of PHP-FPM and uses MariaDB. PHP runs
+as the non-root `www-data` user in the app container.
+
+Security-related runtime settings:
+
+```env
+SESSION_COOKIE_SECURE=false
+SESSION_COOKIE_SAMESITE=Lax
+DOOGLE_SECURITY_LOG=/var/log/doogle/security.log
+DOOGLE_RATE_LIMIT_DIR=/tmp/doogle-rate-limits
+DOOGLE_LOGIN_RATE_LIMIT_ATTEMPTS=10
+DOOGLE_LOGIN_RATE_LIMIT_WINDOW=60
+DOOGLE_PASSWORD_CONFIRM_RATE_LIMIT_ATTEMPTS=10
+DOOGLE_PASSWORD_CONFIRM_RATE_LIMIT_WINDOW=60
+DOOGLE_TOTP_RATE_LIMIT_ATTEMPTS=6
+DOOGLE_TOTP_RATE_LIMIT_WINDOW=60
+DOOGLE_CRAWL_RATE_LIMIT_ATTEMPTS=5
+DOOGLE_CRAWL_RATE_LIMIT_WINDOW=60
+```
+
+Set `SESSION_COOKIE_SECURE=true` when the app is served over HTTPS. The local
+Docker stack is plain HTTP, so it keeps secure cookies disabled by default.
+Enable HSTS at the TLS-terminating proxy or load balancer, not in the local HTTP
+container.
+
+## Rate Limiting
+
+Login, password confirmation, TOTP, and crawl POST requests are rate limited to prevent brute force and abuse.
+
+### How It Works
+
+Rate limiting is **IP-based** and uses a sliding time window stored in local files.
+
+For **login requests**: rate limit by `IP + username` (prevents brute force on a single account from a specific IP).
+
+For **password confirmation requests**: rate limit by `IP + user ID` for security-page password changes and TOTP disable.
+
+For **TOTP requests**: rate limit by `IP + user ID` after a successful username/password check.
+
+For **crawl requests**: rate limit by `user ID` (authenticated) or `IP` (unauthenticated).
+
+Each attempt is recorded with a timestamp. Attempts older than the configured window are automatically pruned. If the number of recent attempts exceeds the limit, the request is rejected and the client is told how long to wait before retrying.
+
+### Caveats
+
+**Single-server deployments only**: Rate limiting uses file-based storage and does not work across multiple server instances. For distributed deployments, implement rate limiting at the reverse proxy layer or use a shared backend like Redis.
+
+**`$_SERVER['REMOTE_ADDR']` only**: Rate limiting does not parse `X-Forwarded-For`, `CF-Connecting-IP`, or other proxy headers. This is **secure by default** because it prevents IP spoofing through proxy headers. However, you must ensure your reverse proxy is properly configured to strip untrusted headers and set only the actual client IP in `REMOTE_ADDR`. If you are behind a load balancer or CDN that you control, configure it to forward the true client IP through the standard proxy chain.
+
+**Local development**: During local testing, ensure that requests are not being routed through unexpected proxies that might hide the real IP.
+
+## Database And Migrations
+
+Fresh Docker databases are created from `doogle-tables-no-data.sql`.
+
+Existing databases may need migrations:
+
+```text
+database/migrations/001_add_search_fulltext_indexes.sql
+database/migrations/002_update_users_auth_schema.sql
+database/migrations/003_create_crawl_jobs.sql
+database/migrations/004_add_video_search.sql
+database/migrations/005_create_search_analytics.sql
+database/migrations/006_add_admin_totp_and_login_events.sql
+```
+
+Apply a migration to the Docker database:
+
+```sh
+docker compose -f docker/compose.yml exec -T mysql_db mysql -uroot -proot doogle < database/migrations/003_create_crawl_jobs.sql
+docker compose -f docker/compose.yml exec -T mysql_db mysql -uroot -proot doogle < database/migrations/004_add_video_search.sql
+docker compose -f docker/compose.yml exec -T mysql_db mysql -uroot -proot doogle < database/migrations/005_create_search_analytics.sql
+docker compose -f docker/compose.yml exec -T mysql_db mysql -uroot -proot doogle < database/migrations/006_add_admin_totp_and_login_events.sql
+```
+
+For non-Docker MySQL, apply the same SQL files with your normal MySQL client.
+
+## Local Non-Docker Run
+
+Docker is preferred, but a local PHP/MySQL setup can work.
+
+Minimum expectations:
+
+- PHP `>=8.2`
+- Composer
+- MySQL-compatible database
+- PHP extensions: `pdo`, `pdo_mysql`, `dom`
+- web server document root pointed at `public/`
+
+Install dependencies:
+
+```sh
+composer install
+```
+
+Create `.env` from `.env.example` and set database credentials:
+
+```sh
+cp .env.example .env
+```
+
+Create the schema:
+
+```sh
+mysql -u root -p < doogle-tables-no-data.sql
+```
+
+Create an admin:
+
+```sh
+DOOGLE_ADMIN_PASSWORD='change-this-password' php bin/create-admin admin admin@example.local
+```
+
+Point Apache, nginx, or PHP's local server at `public/`. Example for quick local
+testing:
+
+```sh
+php -S localhost:8000 -t public
+```
+
+The app still expects a configured MySQL-compatible database.
+
+## Development Checks
+
+Run the local quality checks:
+
+```sh
+composer validate --strict
+composer test
+composer analyse
+composer lint
+composer sbom
+```
+
+Run checks in Docker:
+
+```sh
+./docker/test.sh
+```
+
+The generated SBOM is written to `build/sbom.cdx.json`.
+
+## Repository Layout
+
+Important directories:
+
+```text
+app/                  Application classes
+bin/                  CLI commands
+database/migrations/  Incremental SQL migrations
+docker/               Local Docker runtime
+public/               Browser document root
+tests/                PHPUnit tests
+```
+
+Important commands:
+
+```text
+bin/create-admin      Create or confirm an admin user
+bin/admin-reset-totp  Clear TOTP for an admin user
+bin/crawl             Run a trusted CLI crawl
+docker/up.sh          Start Docker stack
+docker/down.sh        Stop Docker stack
+docker/admin-reset-totp.sh  Clear admin TOTP inside Docker
+docker/crawl.sh       Run CLI crawl inside Docker app container
+docker/test.sh        Run Composer checks inside Docker
+```
+
+## Notes For Existing Data
+
+If you already have an older Docker volume or database:
+
+- run the migrations above, or
+- reset the local Docker database with `./docker/reset-db.sh --force`.
+
+Resetting the Docker database deletes local indexed sites, images, videos,
+users, and crawl history.
+It also deletes search analytics and ranking setting overrides.
+
+## Security Defaults
+
+- Browser crawl requires an authenticated admin.
+- Admin TOTP is optional, enabled per account, and checked after a valid password.
+- Admin password changes and TOTP disable actions require the current password.
+- Admin login attempts are recorded in `admin_login_events`.
+- Browser crawl POST requires CSRF validation.
+- Login, password confirmation, TOTP, and crawl POST requests are rate limited.
+- Auth, TOTP, crawl, and ranking security events are logged.
+- CLI crawl is trusted local/container execution, not public HTTP access.
+- Private/reserved network crawling is blocked by default.
+- Passwords are hashed with `password_hash()`.
+- Session IDs are regenerated on login.
+- Session cookies are HTTP-only and SameSite `Lax` by default.
+- Docker Nginx adds baseline security headers.
+- Docker PHP-FPM runs as a non-root user.
+- Internal code is outside the web document root.
+
+Before production use, terminate HTTPS in front of the app, set
+`SESSION_COOKIE_SECURE=true`, review CSP for any new third-party assets, and
+confirm rate limits match expected traffic.

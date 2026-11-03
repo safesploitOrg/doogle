@@ -1,0 +1,9 @@
+.git
+.github
+.env
+.phpunit.result.cache
+vendor
+build
+node_modules
+.DS_Store
+docker/.env

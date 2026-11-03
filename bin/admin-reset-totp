@@ -1,0 +1,43 @@
+#!/usr/bin/env php
+<?php
+
+declare(strict_types=1);
+
+use Doogle\Auth\UserRepository;
+use Doogle\Database\ConnectionFactory;
+
+require_once dirname(__DIR__) . '/vendor/autoload.php';
+
+if (PHP_SAPI !== 'cli') {
+    fwrite(STDERR, "This command can only be run from the CLI.\n");
+    exit(1);
+}
+
+$username = trim((string) ($argv[1] ?? ''));
+
+if ($username === '') {
+    fwrite(STDERR, "Usage: php bin/admin-reset-totp <username>\n");
+    exit(1);
+}
+
+try {
+    $pdo = ConnectionFactory::fromProjectRoot(dirname(__DIR__))->create();
+    $users = new UserRepository($pdo);
+    $user = $users->findByUsername($username);
+
+    if ($user === null || ($user['role'] ?? 'admin') !== 'admin') {
+        fwrite(STDERR, "Admin user not found: {$username}\n");
+        exit(1);
+    }
+
+    if (!$users->clearTotpForUsername($username)) {
+        fwrite(STDERR, "TOTP storage is unavailable. Run migration 006.\n");
+        exit(3);
+    }
+
+    fwrite(STDOUT, "Cleared TOTP for admin user {$username}.\n");
+    exit(0);
+} catch (Throwable $throwable) {
+    fwrite(STDERR, "Failed to clear admin TOTP: {$throwable->getMessage()}\n");
+    exit(3);
+}

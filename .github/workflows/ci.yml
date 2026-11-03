@@ -1,0 +1,185 @@
+name: CI
+
+on:
+  push:
+    branches:
+      - main
+      - dev-refactor
+  pull_request:
+    branches:
+      - main
+      - dev-refactor
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  quality:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v5
+
+      - name: Setup PHP
+        uses: shivammathur/setup-php@v2
+        with:
+          php-version: '8.4'
+          extensions: dom, pdo, pdo_sqlite
+          coverage: none
+
+      - name: Validate Composer metadata
+        run: composer validate --strict
+
+      - name: Install dependencies
+        run: composer install --no-interaction --prefer-dist
+
+      - name: Run Composer audit
+        run: composer audit
+
+      - name: Run PHP unit tests
+        run: composer test
+
+      - name: Run static analysis
+        run: composer analyse
+
+      - name: Run code style
+        run: composer lint
+
+          # Eventually move SBOM into separate workflow
+          # and depend on quality workflow to ensure SBOM is generated only after quality checks pass.
+      #===========================================
+      # SBOM generation and upload
+      # ===========================================
+      - name: Generate SBOM
+        run: composer sbom
+
+      - name: Set artifact date
+        run: echo "ARTIFACT_DATE=$(date +%F)" >> "$GITHUB_ENV"
+
+      - name: Upload SBOM
+        uses: actions/upload-artifact@v4
+        with:
+          name: doogle_sbom_cyclonedx_${{ env.ARTIFACT_DATE }}_R${{ github.run_number }}
+          path: build/sbom.cdx.json
+          if-no-files-found: error
+
+  # CodeQL is not enabled because CodeQL does not currently support PHP.
+  # Doogle uses PHPStan, PHPCS, Composer audit, Gitleaks, Trivy, and SBOM generation instead.
+  # 
+  # codeql:
+
+
+  # Run gitleaks and Trivy
+  security:
+    runs-on: ubuntu-latest
+    permissions:
+      actions: read
+      contents: read
+      security-events: write
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v5
+        with:
+          fetch-depth: 0
+
+      # ==============================================================
+      # Gitleaks secrets detection, upload results as SARIF for GitHub code scanning alerts
+      # 
+      # GitHub organisation, and the official gitleaks/gitleaks-action@v3 
+      # now requires a GITLEAKS_LICENSE secret for organisation-owned repos.
+      # ==============================================================
+      - name: Install Gitleaks
+        run: |
+          GITLEAKS_VERSION="8.30.1"
+          curl -sSfL "https://github.com/gitleaks/gitleaks/releases/download/v${GITLEAKS_VERSION}/gitleaks_${GITLEAKS_VERSION}_linux_x64.tar.gz" -o gitleaks.tar.gz
+          tar -xzf gitleaks.tar.gz gitleaks
+          sudo mv gitleaks /usr/local/bin/gitleaks
+          gitleaks version
+
+      # Detect → Report → Block
+      - name: Run Gitleaks
+        id: gitleaks
+        continue-on-error: true
+        run: |
+          gitleaks detect \
+            --source . \
+            --config .gitleaks.toml \
+            --redact \
+            --report-format sarif \
+            --report-path gitleaks-results.sarif
+
+      - name: Upload Gitleaks SARIF
+        if: always()
+        uses: github/codeql-action/upload-sarif@v4
+        with:
+          sarif_file: gitleaks-results.sarif
+
+      # - name: Fail if Gitleaks found leaks
+      #   if: steps.gitleaks.outcome == 'failure'
+      #   run: |
+      #     echo "Gitleaks found secrets. Failing the workflow."
+      #     exit 1
+                
+      # Avoiding the action and run the open-source CLI directly
+      # - name: Run Gitleaks
+      #   uses: gitleaks/gitleaks-action@v3
+      #   env:
+      #     GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      # ============================================================
+      # Trivy filesystem scan for vulnerabilities in dependencies
+      # and upload results as SARIF for GitHub code scanning alerts
+      # ============================================================
+      - name: Run Trivy filesystem scan
+        id: trivy
+        continue-on-error: true
+        uses: aquasecurity/trivy-action@v0.36.0
+        with:
+          scan-type: fs
+          scan-ref: .
+          format: sarif
+          output: trivy-results.sarif
+          severity: CRITICAL,HIGH
+          ignore-unfixed: true
+          exit-code: '0'
+          # exit-code: '1' # Exit with code 1 if vulnerabilities are found, but continue to upload results
+
+      - name: Upload Trivy SARIF
+        if: always()
+        uses: github/codeql-action/upload-sarif@v4
+        with:
+          sarif_file: trivy-results.sarif
+
+      # ==============================================================
+      # Final security gate
+      # ==============================================================
+      - name: ❌⛓️‍💥 Fail if security findings were detected
+        if: steps.gitleaks.outcome == 'failure' || steps.trivy.outcome == 'failure'
+        run: |
+          echo "Security findings detected. Failing the workflow."
+
+          if [ "${{ steps.gitleaks.outcome }}" = "failure" ]; then
+            echo "- Gitleaks found secrets."
+          fi
+
+          if [ "${{ steps.trivy.outcome }}" = "failure" ]; then
+            echo "- Trivy found HIGH or CRITICAL vulnerabilities."
+          fi
+
+          exit 1
+
+  # Docker-based integration tests are currently disabled
+  # docker:
+  #   runs-on: ubuntu-latest
+
+  #   steps:
+  #     - uses: actions/checkout@v5
+
+  #     - name: Build Docker runtime
+  #       run: ./docker/build.sh
+
+  #     - name: Run Docker tests
+  #       run: ./docker/up.sh
